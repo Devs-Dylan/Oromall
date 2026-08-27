@@ -34,6 +34,7 @@ export default function HousingCatalogPage() {
   const [furnishedOnly, setFurnishedOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
   const [selectedHousingForVisit, setSelectedHousingForVisit] = useState<{ id: string; title: string; city: string; image_url: string } | null>(null)
+  const [visibleCount, setVisibleCount] = useState(6)
 
   const filteredHousings = useMemo(() => {
     return housings.filter(h => {
@@ -216,93 +217,100 @@ export default function HousingCatalogPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
-              {filteredHousings.map(housing => (
-                <div key={housing.id} className="card-glass overflow-hidden group hover:border-emerald-500/40 transition-all flex flex-col justify-between">
-                  <div>
-                    {/* Property Image & Badges */}
-                    <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                      <img
-                        src={housing.image_url}
-                        alt={housing.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      {(housing.images && housing.images.length > 0) && (
-                        <span className="absolute bottom-3 left-3 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold">
-                          +{housing.images.length} photo{housing.images.length > 1 ? 's' : ''}
-                        </span>
-                      )}
-                      <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-md capitalize">
-                          {housing.category}
-                        </span>
-                        {housing.furnished && (
-                          <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-black/70 text-amber-300 backdrop-blur-md">
-                            Meublé 🛋️
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredHousings.slice(0, visibleCount).map(housing => (
+                  <div key={housing.id} className="card-glass overflow-hidden rounded-3xl group hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+                    <div>
+                      {/* Image header */}
+                      <div className="relative aspect-[16/10] overflow-hidden bg-card">
+                        <img
+                          src={housing.image_url}
+                          alt={housing.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                        />
+                        <div className="absolute top-3 left-3 flex gap-2">
+                          <span className="px-3 py-1 rounded-xl bg-black/60 backdrop-blur-md text-white text-xs font-bold capitalize shadow">
+                            {housing.category}
                           </span>
-                        )}
+                          {housing.furnished && (
+                            <span className="px-3 py-1 rounded-xl bg-emerald-500/90 text-white text-xs font-extrabold shadow">
+                              Meublé
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => toggleHousingFavorite(housing.id)}
+                          className={cn(
+                            "absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-transform shadow-md",
+                            isHousingFavorite(housing.id) ? "bg-red-500 text-white" : "bg-black/60 text-white hover:text-red-400"
+                          )}
+                        >
+                          <Heart className={cn("w-4 h-4", isHousingFavorite(housing.id) && "fill-current")} />
+                        </button>
+                        <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1 rounded-xl text-white font-extrabold text-sm shadow">
+                          {formatPrice(housing.price)} <span className="text-[10px] font-normal text-amber-300">/ {housing.price_type === 'day' ? 'jour' : 'mois'}</span>
+                        </div>
                       </div>
-                      <button
-                        onClick={e => {
-                          e.preventDefault()
-                          toggleHousingFavorite(housing)
-                        }}
-                        className={cn(
-                          "absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-transform shadow-md",
-                          isHousingFavorite(housing.id) ? "bg-red-500 text-white" : "bg-black/60 text-white hover:text-red-400"
-                        )}
+
+                      {/* Content Details */}
+                      <div className="p-5 space-y-3">
+                        <div className="flex items-center text-xs text-emerald-400 font-semibold gap-1">
+                          <MapPin className="w-3.5 h-3.5" /> {housing.city} • {housing.neighborhood}
+                        </div>
+
+                        <Link to={`/housing/${housing.id}`} className="font-bold text-foreground text-base line-clamp-2 hover:text-emerald-400 transition-colors">
+                          {housing.title}
+                        </Link>
+
+                        {/* Specs pills */}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 border-t border-border/60">
+                          <span className="flex items-center gap-1"><Maximize2 className="w-3.5 h-3.5 text-emerald-400" /> {housing.surface_sqm} m²</span>
+                          <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5 text-emerald-400" /> {housing.bedrooms} ch.</span>
+                          <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5 text-emerald-400" /> {housing.bathrooms} sdb</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="p-5 pt-0 flex gap-2">
+                      <Link
+                        to={`/housing/${housing.id}`}
+                        className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs text-center transition-colors flex items-center justify-center gap-2"
                       >
-                        <Heart className={cn("w-4 h-4", isHousingFavorite(housing.id) && "fill-current")} />
-                      </button>
-                      <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1 rounded-xl text-white font-extrabold text-sm shadow">
-                        {formatPrice(housing.price)} <span className="text-[10px] font-normal text-amber-300">/ {housing.price_type === 'day' ? 'jour' : 'mois'}</span>
-                      </div>
-                    </div>
-
-                    {/* Content Details */}
-                    <div className="p-5 space-y-3">
-                      <div className="flex items-center text-xs text-emerald-400 font-semibold gap-1">
-                        <MapPin className="w-3.5 h-3.5" /> {housing.city} • {housing.neighborhood}
-                      </div>
-
-                      <Link to={`/housing/${housing.id}`} className="font-bold text-foreground text-base line-clamp-2 hover:text-emerald-400 transition-colors">
-                        {housing.title}
+                        Détails & Visite <Calendar className="w-3.5 h-3.5" />
                       </Link>
-
-                      {/* Specs pills */}
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 border-t border-border/60">
-                        <span className="flex items-center gap-1"><Maximize2 className="w-3.5 h-3.5 text-emerald-400" /> {housing.surface_sqm} m²</span>
-                        <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5 text-emerald-400" /> {housing.bedrooms} ch.</span>
-                        <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5 text-emerald-400" /> {housing.bathrooms} sdb</span>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setSelectedHousingForVisit({
+                            id: housing.id,
+                            title: housing.title,
+                            city: housing.city,
+                            image_url: housing.image_url
+                          })
+                        }}
+                        className="w-full py-2.5 rounded-xl border-2 border-emerald-500/40 hover:border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs text-center transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Calendar className="w-3.5 h-3.5" /> Demander visite
+                      </button>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  {/* Actions */}
-                  <div className="p-5 pt-0 flex gap-2">
-                    <Link
-                      to={`/housing/${housing.id}`}
-                      className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs text-center transition-colors flex items-center justify-center gap-2"
-                    >
-                      Détails & Visite <Calendar className="w-3.5 h-3.5" />
-                    </Link>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setSelectedHousingForVisit({
-                          id: housing.id,
-                          title: housing.title,
-                          city: housing.city,
-                          image_url: housing.image_url
-                        })
-                      }}
-                      className="w-full py-2.5 rounded-xl border-2 border-emerald-500/40 hover:border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs text-center transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Calendar className="w-3.5 h-3.5" /> Demander visite
-                    </button>
-                  </div>
+              {/* Pagination / Chargeur la suite */}
+              {filteredHousings.length > visibleCount && (
+                <div className="text-center pt-8">
+                  <Button
+                    onClick={() => setVisibleCount(v => v + 6)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-8 py-3 rounded-2xl shadow-lg"
+                  >
+                    Charger plus de logements ({filteredHousings.length - visibleCount} restants)
+                  </Button>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

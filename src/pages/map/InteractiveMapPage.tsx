@@ -105,7 +105,7 @@ export default function InteractiveMapPage() {
       } finally {
         setOsmLoading(false)
       }
-    }, 300)
+    }, 500)
 
     return () => clearTimeout(timeoutId)
   }, [referenceSearchInput])

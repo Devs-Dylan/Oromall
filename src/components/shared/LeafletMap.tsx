@@ -46,10 +46,10 @@ export default function LeafletMap({
     if (!leafletInstance.current) {
       const map = L.map(mapRef.current).setView(center, zoom)
 
-      // Utilisation des tuiles CartoDB Voyager ultra-rapides et légères
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        subdomains: 'abcd',
+      // Utilisation des tuiles officielles OpenStreetMap 100% gratuites et sans clé API requise
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        subdomains: 'abc',
         maxZoom: 19,
         updateWhenIdle: true,
         updateWhenZooming: false,
