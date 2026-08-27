@@ -105,6 +105,20 @@ export function AdminCatalogTab({ adminName = 'SuperAdmin', onRefresh }: AdminCa
     onRefresh()
   }
 
+  const handleToggleVerifyShop = (shop: Shop) => {
+    const nextVerified = !shop.is_verified
+    ShopAPI.update(shop.id, { is_verified: nextVerified })
+    AuditLogAPI.create({ 
+      timestamp: new Date().toISOString(), 
+      admin_name: adminName, 
+      action: `${nextVerified ? 'Certification Boutique 🛡️' : 'Retrait Certification Boutique'}`, 
+      details: `Boutique : ${shop.name}`, 
+      severity: nextVerified ? 'warning' : 'info' 
+    })
+    toastSuccess(`Boutique "${shop.name}" ${nextVerified ? 'Certifiée & Vérifiée 🛡️' : 'Certification retirée'}`)
+    onRefresh()
+  }
+
   const handleSaveShop = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingShop) return
@@ -229,17 +243,40 @@ export function AdminCatalogTab({ adminName = 'SuperAdmin', onRefresh }: AdminCa
             {filteredShops.map(shop => (
               <div key={shop.id} className="card-glass p-4 flex flex-col justify-between space-y-3">
                 <div className="space-y-1">
-                  <h3 className="font-bold text-foreground text-sm">{shop.name}</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                      {shop.name}
+                      {shop.is_verified && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          🛡️ Vérifiée
+                        </span>
+                      )}
+                    </h3>
+                  </div>
                   <p className="text-xs text-muted-foreground">{shop.category} • {shop.city}</p>
                   <p className="text-xs text-muted-foreground">Propriétaire: {shop.owner_name} ({shop.whatsapp_number})</p>
                 </div>
-                <div className="flex justify-end gap-1 pt-2 border-t border-border/50">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingShop({ ...shop })} className="text-primary hover:bg-primary/10">
-                    <Edit3 className="w-3.5 h-3.5" /> Modifier
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleToggleVerifyShop(shop)}
+                    className={cn(
+                      'text-xs font-bold',
+                      shop.is_verified ? 'text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10' : 'text-slate-400 border-slate-700 hover:bg-slate-800'
+                    )}
+                  >
+                    {shop.is_verified ? '🛡️ Certifiée' : 'Certifier Pro'}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleDeleteShop(shop.id, shop.name)} className="text-red-400 hover:bg-red-500/10">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingShop({ ...shop })} className="text-primary hover:bg-primary/10">
+                      <Edit3 className="w-3.5 h-3.5" /> Modifier
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDeleteShop(shop.id, shop.name)} className="text-red-400 hover:bg-red-500/10">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

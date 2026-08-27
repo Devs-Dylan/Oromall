@@ -21,6 +21,7 @@ import { SellerCustomizerTab } from '@/components/seller/SellerCustomizerTab'
 import { SellerExportsTab } from '@/components/seller/SellerExportsTab'
 import { SellerAvailabilityTab } from '@/components/seller/SellerAvailabilityTab'
 import { SellerSubscriptionTab } from '@/components/seller/SellerSubscriptionTab'
+import { SubscriptionAlertModal } from '@/components/seller/SubscriptionAlertModal'
 
 export default function SellerDashboard() {
   const { user } = useAuth()
@@ -266,6 +267,12 @@ export default function SellerDashboard() {
       {activeTab === 'exports' && (
         <SellerExportsTab orders={orders} products={products} housings={housings} />
       )}
+
+      {/* Pub Alert Modal for Subscription Renewal */}
+      <SubscriptionAlertModal 
+        subscription={subscription} 
+        onOpenRenew={() => setActiveTab('subscription')} 
+      />
     </div>
   )
 }

@@ -13,6 +13,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
+import { LoyaltyPointsWidget } from '@/components/customer/LoyaltyPointsWidget'
 
 export default function OrdersPage() {
   const { user } = useAuth()
@@ -211,6 +212,7 @@ export default function OrdersPage() {
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">Mes Commandes & Demandes de Visites</h1>
             <p className="text-sm text-muted-foreground">Suivez vos achats de produits et vos réservations de visites de logements.</p>
+            <LoyaltyPointsWidget />
           </div>
         </div>
 

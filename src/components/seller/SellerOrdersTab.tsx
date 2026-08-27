@@ -13,6 +13,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { toastSuccess, toastError, toastInfo } from '@/components/ui/Toast'
 
+import { InvoiceModal } from '@/components/seller/InvoiceModal'
+
 interface SellerOrdersTabProps {
   orders: Order[]
   onRefresh: () => void
@@ -32,6 +34,9 @@ export function SellerOrdersTab({ orders, onRefresh }: SellerOrdersTabProps) {
 
   // Detailed Inspection Modal state
   const [inspectingOrder, setInspectingOrder] = useState<Order | null>(null)
+
+  // Invoice Modal state
+  const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null)
 
   // PIN modal state (standalone or from inspection)
   const [pinModalOrder, setPinModalOrder] = useState<Order | null>(null)
@@ -336,14 +341,24 @@ export function SellerOrdersTab({ orders, onRefresh }: SellerOrdersTabProps) {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5 justify-end">
-                    {/* Bouton Inspecter en Détail */}
-                    <Button
-                      onClick={() => setInspectingOrder(ord)}
-                      size="sm"
-                      className="bg-primary/20 hover:bg-primary text-primary hover:text-black border border-primary/40 text-xs font-bold gap-1"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> Inspecter
-                    </Button>
+                  {/* Main Inspect Button */}
+                  <Button
+                    onClick={() => setInspectingOrder(ord)}
+                    size="sm"
+                    className="bg-primary/20 text-primary border border-primary/30 hover:bg-primary hover:text-white transition-all text-xs"
+                  >
+                    <Eye className="w-3.5 h-3.5 mr-1" /> Gérer & Inspecter
+                  </Button>
+
+                  {/* Facture Pro Button */}
+                  <Button
+                    onClick={() => setInvoiceOrder(ord)}
+                    size="sm"
+                    variant="outline"
+                    className="text-xs border-slate-700 hover:bg-muted"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Facture Pro
+                  </Button>
 
                     {/* WhatsApp Direct */}
                     <a
@@ -770,6 +785,13 @@ export function SellerOrdersTab({ orders, onRefresh }: SellerOrdersTabProps) {
           </div>
         )}
       </Modal>
+
+      {/* INVOICE MODAL */}
+      <InvoiceModal
+        order={invoiceOrder}
+        open={!!invoiceOrder}
+        onClose={() => setInvoiceOrder(null)}
+      />
     </div>
   )
 }

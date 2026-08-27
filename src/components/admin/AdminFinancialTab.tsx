@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { DollarSign, CreditCard, ShieldCheck, AlertTriangle, CheckCircle, XCircle, Search, Download, TrendingUp, Wallet, Users, Phone, RefreshCw, Key, FileText, Printer, Trash2, Edit3, Eye } from 'lucide-react'
 import type { Order, Commission, Subscription, P2PAccount } from '@/types'
-import { OrderAPI, CommissionAPI, SubscriptionAPI, NotificationAPI, AuditLogAPI, P2PAPI } from '@/lib/store'
+import { OrderAPI, CommissionAPI, SubscriptionAPI, NotificationAPI, AuditLogAPI, P2PAPI, ShopAPI } from '@/lib/store'
 import { formatPrice, formatDate, cn, buildWhatsAppUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'

@@ -13,7 +13,7 @@ import { Input, Select } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { FileUploadField } from '@/components/ui/FileUploadField'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
-import { OrderAPI, ChatAPI, NotificationAPI, CommissionAPI } from '@/lib/store'
+import { OrderAPI, ChatAPI, NotificationAPI, CommissionAPI, ShopAPI } from '@/lib/store'
 import { CITIES_CAMEROON, type PaymentMethod, type CartItem } from '@/types'
 
 const ADMIN_MTN = '680195221'

@@ -27,6 +27,7 @@ export interface User {
   account_type?: AccountType
   role: UserRole
   is_banned?: boolean
+  loyalty_points?: number
   created_date: string
   avatar_url?: string
 }
@@ -61,6 +62,7 @@ export interface Shop {
   owner_id: string
   shop_type: ShopType
   status: ShopStatus
+  is_verified?: boolean
   category: string
   city: string
   address?: string
@@ -76,7 +78,6 @@ export interface Shop {
   business_hours?: string
   rating?: number
   reviews_count?: number
-  is_verified?: boolean
   policies?: ShopPolicy
   social_links?: ShopSocial
   created_date: string
@@ -105,28 +106,28 @@ export interface Housing {
   bathrooms: number
   living_rooms: number
   kitchens: number
-  balconies: number
-  parking_spaces: number
-  storage_rooms: number
+  balconies?: number
+  parking_spaces?: number
+  storage_rooms?: number
   floor_number?: number
   year_built?: number
   furnished: boolean
-  furnished_kitchen: boolean
+  furnished_kitchen?: boolean
   air_conditioning: boolean
-  heating: boolean
-  swimming_pool: boolean
-  garden: boolean
-  terrace: boolean
+  heating?: boolean
+  swimming_pool?: boolean
+  garden?: boolean
+  terrace?: boolean
   water_source: 'city' | 'well' | 'borehole' | 'none'
   electricity_source: 'grid' | 'solar' | 'generator' | 'none'
-  internet_available: boolean
-  security_24h: boolean
-  pets_allowed: boolean
-  smoking_allowed: boolean
-  legal_status: 'title_deed' | 'permit' | 'none'
-  occupancy_status: 'vacant' | 'occupied' | 'reserved'
-  available_from: string
-  minimum_stay_months: number
+  internet_available?: boolean
+  security_24h?: boolean
+  pets_allowed?: boolean
+  smoking_allowed?: boolean
+  legal_status?: 'title_deed' | 'permit' | 'none'
+  occupancy_status?: 'vacant' | 'occupied' | 'reserved'
+  available_from?: string
+  minimum_stay_months?: number
   amenities: string[]
   images: string[]
   image_url: string
