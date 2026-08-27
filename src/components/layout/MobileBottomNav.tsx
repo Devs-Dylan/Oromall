@@ -15,7 +15,7 @@ export function MobileBottomNav() {
     { to: '/housing', label: 'Logements', icon: Home },
     { to: '/map', label: 'Carte', icon: Map },
     { to: '/orders', label: 'Commandes', icon: ShoppingBag, badge: cartCount },
-    { to: user ? (user.account_type === 'seller' ? '/seller' : '/orders') : '/login', label: 'Mon Compte', icon: User },
+    { to: user ? '/profile' : '/login', label: 'Mon Compte', icon: User },
   ]
 
   return (

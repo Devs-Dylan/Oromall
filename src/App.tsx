@@ -29,6 +29,7 @@ const SellerOnboardingPage = lazy(() => import('@/pages/seller/SellerOnboardingP
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'))
 const ProjectExplorer = lazy(() => import('@/pages/project/ProjectExplorer'))
 const CustomerAvailabilityPage = lazy(() => import('@/pages/customer/CustomerAvailabilityPage'))
+const ProfilePage = lazy(() => import('@/pages/customer/ProfilePage'))
 
 // Composant Spinner léger pour le chargement instantané de la page active
 function PageLoader() {
@@ -72,6 +73,11 @@ export default function App() {
           <Route path="/role" element={<RoleSelectPage />} />
 
           {/* Protected routes */}
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } />
           <Route path="/orders" element={
             <ProtectedRoute>
               <OrdersPage />

@@ -207,6 +207,13 @@ export default function Header() {
 
                     <div className="py-1">
                       <Link
+                        to="/profile"
+                        className="flex items-center gap-2 px-4 py-2 text-foreground font-bold hover:bg-muted transition-colors"
+                      >
+                        <User className="w-3.5 h-3.5 text-primary" /> Mon Profil & Fidélité
+                      </Link>
+
+                      <Link
                         to="/orders"
                         className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors"
                       >
