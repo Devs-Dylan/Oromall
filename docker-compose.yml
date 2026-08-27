@@ -50,13 +50,6 @@ services:
       - "80:80"
     depends_on:
       - backend
-    networks:
-      - dokploy-network
-      - default
-
-networks:
-  dokploy-network:
-    external: true
 
 volumes:
   pgdata:
