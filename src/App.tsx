@@ -16,6 +16,7 @@ import ReferralPage from '@/pages/referral/ReferralPage'
 import FaqPage from '@/pages/faq/FaqPage'
 
 import LoginPage from '@/pages/auth/LoginPage'
+import AdminLoginPage from '@/pages/auth/AdminLoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import RoleSelectPage from '@/pages/auth/RoleSelectPage'
 
@@ -25,7 +26,12 @@ import SellerOnboardingPage from '@/pages/seller/SellerOnboardingPage'
 import AdminDashboard from '@/pages/admin/AdminDashboard'
 import ProjectExplorer from '@/pages/project/ProjectExplorer'
 
+import CustomerAvailabilityPage from '@/pages/customer/CustomerAvailabilityPage'
+import { useSubscriptionNotifications } from '@/hooks/useSubscriptionNotifications'
+
 export default function App() {
+  useSubscriptionNotifications()
+
   return (
     <Routes>
       <Route element={<AppLayout />}>
@@ -47,6 +53,7 @@ export default function App() {
 
         {/* Auth routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/role" element={<RoleSelectPage />} />
 
@@ -54,6 +61,11 @@ export default function App() {
         <Route path="/orders" element={
           <ProtectedRoute>
             <OrdersPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/my-availability" element={
+          <ProtectedRoute>
+            <CustomerAvailabilityPage />
           </ProtectedRoute>
         } />
 

@@ -1,17 +1,33 @@
-import { useMemo } from 'react'
-import { TrendingUp, DollarSign, ShoppingBag, Package, ArrowUpRight, Award, BarChart3, Clock } from 'lucide-react'
-import type { Order, Product, Housing, Shop } from '@/types'
+import { useMemo, useState } from 'react'
+import { TrendingUp, DollarSign, ShoppingBag, Package, ArrowUpRight, Award, BarChart3, Clock, Receipt, Upload } from 'lucide-react'
+import type { Order, Product, Housing, Shop, Commission } from '@/types'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { StatCard } from '@/components/ui/Card'
+import { Modal } from '@/components/ui/Modal'
+import { Input } from '@/components/ui/Input'
+import { FileUploadField } from '@/components/ui/FileUploadField'
+import { Button } from '@/components/ui/Button'
+import { CommissionAPI, NotificationAPI } from '@/lib/store'
+import { toastSuccess, toastError } from '@/components/ui/Toast'
 
 interface SellerAnalyticsTabProps {
   shop?: Shop
   orders: Order[]
   products: Product[]
   housings: Housing[]
+  commissions: Commission[]
+  totalCommission: number
+  paidCommission: number
+  pendingCommission: number
 }
 
-export function SellerAnalyticsTab({ shop, orders, products, housings }: SellerAnalyticsTabProps) {
+export function SellerAnalyticsTab({ shop, orders, products, housings, totalCommission, paidCommission, pendingCommission }: SellerAnalyticsTabProps) {
+  const [payModalOpen, setPayModalOpen] = useState(false)
+  const [proofType, setProofType] = useState<'reference' | 'image'>('reference')
+  const [proofValue, setProofValue] = useState('')
+  const [proofFile, setProofFile] = useState<string | undefined>(undefined)
+  const [processing, setProcessing] = useState(false)
+
   const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed' || o.status === 'payment_verified' || o.status === 'sold'), [orders])
   
   const gmv = useMemo(() => completedOrders.reduce((sum, o) => sum + o.total, 0), [completedOrders])
@@ -25,6 +41,36 @@ export function SellerAnalyticsTab({ shop, orders, products, housings }: SellerA
       total_revenue: p.price * (Math.floor(Math.random() * 15) + 1)
     })).sort((a, b) => b.total_revenue - a.total_revenue)
   }, [products])
+
+  const handlePayCommission = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const finalProof = proofFile || proofValue
+    if (!finalProof || (proofType === 'reference' && !proofValue.trim())) {
+      toastError('Veuillez fournir la preuve de paiement.')
+      return
+    }
+    setProcessing(true)
+    await new Promise(r => setTimeout(r, 800))
+
+    const pendingCommissions = CommissionAPI.filter(c => c.status === 'pending')
+    pendingCommissions.forEach(c => {
+      CommissionAPI.update(c.id, { status: 'paid', paid_at: new Date().toISOString() })
+    })
+
+    NotificationAPI.create({
+      user_email: shop?.owner_email || '',
+      title: 'Paiement de commission envoyé',
+      message: `Votre preuve de paiement de ${formatPrice(pendingCommission)} a été soumise. L'admin va valider.`,
+      type: 'system',
+      read: false,
+    })
+
+    setProcessing(false)
+    setPayModalOpen(false)
+    setProofValue('')
+    setProofFile(undefined)
+    toastSuccess('Preuve de paiement soumise !', 'En attente de validation par l\'admin.')
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -56,30 +102,54 @@ export function SellerAnalyticsTab({ shop, orders, products, housings }: SellerA
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Chiffre d'Affaires (GMV)"
+          label="Chiffre d'Affaires (GMV)"
           value={formatPrice(gmv)}
           subtitle="Cumul des ventes confirmées"
           icon={<DollarSign className="w-6 h-6 text-emerald-400" />}
         />
         <StatCard
-          title="Panier Moyen"
+          label="Panier Moyen"
           value={formatPrice(avgOrderValue)}
           subtitle="Valeur moyenne par commande"
           icon={<TrendingUp className="w-6 h-6 text-primary" />}
         />
         <StatCard
-          title="Commandes Traitées"
+          label="Commandes Traitées"
           value={orders.length}
           subtitle={`${completedOrders.length} validées`}
           icon={<ShoppingBag className="w-6 h-6 text-purple-400" />}
         />
         <StatCard
-          title="Produits en Catalogue"
+          label="Produits en Catalogue"
           value={products.length}
           subtitle={`${products.filter(p => p.stock > 0).length} en stock`}
           icon={<Package className="w-6 h-6 text-amber-400" />}
         />
+        <StatCard
+          label="Commission Plateforme (2%)"
+          value={formatPrice(totalCommission)}
+          subtitle={`${formatPrice(paidCommission)} payée • ${formatPrice(pendingCommission)} en attente`}
+          icon={<Receipt className="w-6 h-6 text-red-400" />}
+        />
+        <StatCard
+          label="Dette envers Admin"
+          value={formatPrice(pendingCommission)}
+          subtitle="À payer à l'administrateur"
+          icon={<DollarSign className="w-6 h-6 text-orange-400" />}
+        />
       </div>
+
+      {pendingCommission > 0 && (
+        <div className="card-glass p-4 border border-amber-500/30 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Vous avez une dette de commission de {formatPrice(pendingCommission)}</p>
+            <p className="text-xs text-muted-foreground">Payez à l'admin via MTN: 680195221 ou OM: 691576677</p>
+          </div>
+          <Button onClick={() => setPayModalOpen(true)} className="bg-primary text-white">
+            <Upload className="w-4 h-4" /> Payer ma dette
+          </Button>
+        </div>
+      )}
 
       {/* Analytics Chart & Performance breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -194,6 +264,50 @@ export function SellerAnalyticsTab({ shop, orders, products, housings }: SellerA
           )}
         </div>
       </div>
+
+      <Modal open={payModalOpen} onClose={() => setPayModalOpen(false)} title="Payer ma dette de commission">
+        <form onSubmit={handlePayCommission} className="space-y-4">
+          <div className="bg-muted/40 p-4 rounded-xl space-y-2">
+            <p className="font-semibold text-foreground">Dette de commission: {formatPrice(pendingCommission)}</p>
+            <p className="text-xs text-muted-foreground">Payer via MTN MoMo ou Orange Money aux numéros de l'admin :</p>
+            <p className="text-xs text-foreground">MTN: 680195221 • OM: 691576677</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-foreground">Type de preuve</label>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setProofType('reference')} className={`flex-1 p-3 rounded-xl border text-xs font-bold transition-all ${proofType === 'reference' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'}`}>
+                Référence de paiement
+              </button>
+              <button type="button" onClick={() => setProofType('image')} className={`flex-1 p-3 rounded-xl border text-xs font-bold transition-all ${proofType === 'image' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'}`}>
+                Capture d'écran
+              </button>
+            </div>
+          </div>
+          {proofType === 'reference' ? (
+            <Input
+              label="Référence / ID de transaction"
+              required
+              value={proofValue}
+              onChange={e => setProofValue(e.target.value)}
+              placeholder="Ex: TXN123456"
+            />
+          ) : (
+            <FileUploadField
+              label="Capture d'écran du paiement"
+              value={proofFile}
+              onChange={(val) => { setProofFile(val); if (val) setProofValue('') }}
+              accept="image/*"
+              maxSizeMB={10}
+            />
+          )}
+          <div className="flex gap-3 justify-end">
+            <Button type="button" variant="ghost" onClick={() => setPayModalOpen(false)}>Annuler</Button>
+            <Button type="submit" disabled={processing} className="bg-primary text-white">
+              <Upload className="w-4 h-4" /> Soumettre la preuve
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

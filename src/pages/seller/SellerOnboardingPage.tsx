@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Store, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Store, ShieldCheck, CheckCircle2, ArrowRight, User, Image, MapPin, Navigation } from 'lucide-react'
 import { ShopAPI, ActivationAPI } from '@/lib/store'
 import { CITIES_CAMEROON, CATEGORIES } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea, Select } from '@/components/ui/Input'
+import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import { useAuth } from '@/hooks/useAuth'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
 
@@ -19,7 +20,31 @@ export default function SellerOnboardingPage() {
   const [whatsapp, setWhatsapp] = useState('')
   const [mtnNumber, setMtnNumber] = useState('')
   const [orangeNumber, setOrangeNumber] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'mtn' | 'orange'>('mtn')
+  const [profileImage, setProfileImage] = useState('')
+  const [coverImage, setCoverImage] = useState('')
+  const [latitude, setLatitude] = useState('')
+  const [longitude, setLongitude] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const handleGeolocate = () => {
+    if (!navigator.geolocation) {
+      toastError('Géolocalisation non supportée par votre navigateur.')
+      return
+    }
+    toastSuccess('Demande de localisation...', 'Veuillez autoriser l\'accès à votre position.')
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude.toString())
+        setLongitude(position.coords.longitude.toString())
+        toastSuccess('Position détectée !', `Lat: ${position.coords.latitude.toFixed(5)}, Lng: ${position.coords.longitude.toFixed(5)}`)
+      },
+      (error) => {
+        toastError('Erreur de géolocalisation', error.message)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,20 +60,25 @@ export default function SellerOnboardingPage() {
       name: shopName,
       description: description || 'Boutique certifiée sur MarchéPlus.',
       owner_name: user?.name || 'Vendeur',
-      owner_email: user?.email || 'vendeur@demo.cm',
-      owner_id: user?.id || 'demo-seller',
+      owner_email: user!.email,
+      owner_id: user!.id,
       shop_type: 'individual',
       status: 'active',
       category,
       city,
+      address: city,
       whatsapp_number: whatsapp,
       mtn_number: mtnNumber || undefined,
       orange_number: orangeNumber || undefined,
+      latitude: latitude ? Number(latitude) : undefined,
+      longitude: longitude ? Number(longitude) : undefined,
+      profile_image: profileImage || undefined,
+      cover_image: coverImage || undefined,
     })
 
     ActivationAPI.create({
       user_name: user?.name || 'Vendeur',
-      user_email: user?.email || 'vendeur@demo.cm',
+      user_email: user!.email,
       shop_name: shopName,
       shop_id: newShop.id,
       shop_type: 'individual',
@@ -92,6 +122,40 @@ export default function SellerOnboardingPage() {
             />
           </div>
 
+          <div className="card-glass p-4 space-y-3 border border-primary/20">
+            <p className="text-xs font-bold text-primary flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5" /> Localisation exacte de votre boutique sur la carte
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Latitude"
+                type="number"
+                step="any"
+                placeholder="Ex: 3.868"
+                required
+                value={latitude}
+                onChange={e => setLatitude(e.target.value)}
+              />
+              <Input
+                label="Longitude"
+                type="number"
+                step="any"
+                placeholder="Ex: 11.521"
+                required
+                value={longitude}
+                onChange={e => setLongitude(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGeolocate}
+              className="w-full text-xs"
+            >
+              <Navigation className="w-4 h-4" /> Me géolocaliser automatiquement
+            </Button>
+          </div>
+
           <Input label="Numéro WhatsApp Vendeur (pour alerte automatique)" placeholder="Ex: 680195221" required value={whatsapp} onChange={e => setWhatsapp(e.target.value)} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -100,6 +164,11 @@ export default function SellerOnboardingPage() {
           </div>
 
           <Textarea label="Description de vos activités" rows={3} placeholder="Présentez brièvement ce que vous vendez..." value={description} onChange={e => setDescription(e.target.value)} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ImageUploadField label="Photo de profil (visage du propriétaire)" value={profileImage} onChange={setProfileImage} />
+            <ImageUploadField label="Photo de couverture (vue extérieure boutique)" value={coverImage} onChange={setCoverImage} />
+          </div>
 
           <Button type="submit" loading={loading} className="w-full justify-center py-3">
             Créer et Activer ma Boutique <ArrowRight className="w-4 h-4" />

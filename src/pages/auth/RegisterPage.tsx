@@ -30,11 +30,11 @@ export default function RegisterPage() {
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md card-glass p-8 space-y-6 shadow-2xl">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center text-white font-black text-xl mx-auto shadow-md">
-            M+
+          <div className="w-12 h-12 rounded-2xl bg-primary text-black font-black text-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/25 border border-amber-400/40">
+            OM
           </div>
-          <h1 className="text-2xl font-display font-extrabold text-foreground">Inscription MarchéPlus</h1>
-          <p className="text-xs text-muted-foreground">Rejoignez la plus grande communauté d'étudiants vendeurs et acheteurs.</p>
+          <h1 className="text-2xl font-display font-extrabold text-foreground">Inscription OroMall</h1>
+          <p className="text-muted-foreground text-sm mt-1">Créez votre compte en quelques secondes</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

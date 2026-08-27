@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { WishlistAPI, ProductAPI, HousingAPI } from '@/lib/store'
 import { useAuth } from '@/hooks/useAuth'
 import { Product, Housing } from '@/types'
-import { toastSuccess } from '@/components/ui/Toast'
+import { toastSuccess, toastError } from '@/components/ui/Toast'
 
 export function useWishlist() {
   const { user } = useAuth()
@@ -10,73 +10,87 @@ export function useWishlist() {
 
   const triggerUpdate = () => setTick(t => t + 1)
 
-  // Get list of favorite product IDs & housing IDs stored in localStorage
-  const getLocalFavorites = useCallback(() => {
+  const isProductFavorite = useCallback((productId: string): boolean => {
+    if (!user) return false
+    return WishlistAPI.filter(w => w.user_id === user.id && w.product_id === productId).length > 0
+  }, [user])
+
+  const isHousingFavorite = useCallback((housingId: string): boolean => {
+    if (!user) return false
     try {
-      const stored = localStorage.getItem('mp_favorites_v2')
-      return stored ? JSON.parse(stored) : { products: [], housings: [] }
+      const stored = localStorage.getItem('mp_housing_favorites')
+      if (!stored) return false
+      const parsed = JSON.parse(stored)
+      return Array.isArray(parsed) && parsed.includes(housingId)
     } catch {
-      return { products: [], housings: [] }
+      return false
     }
-  }, [])
+  }, [user])
 
-  const setLocalFavorites = (data: { products: string[]; housings: string[] }) => {
-    localStorage.setItem('mp_favorites_v2', JSON.stringify(data))
-    triggerUpdate()
-  }
-
-  const isProductFavorite = (productId: string): boolean => {
-    const favs = getLocalFavorites()
-    return favs.products.includes(productId)
-  }
-
-  const isHousingFavorite = (housingId: string): boolean => {
-    const favs = getLocalFavorites()
-    return favs.housings.includes(housingId)
-  }
-
-  const toggleProductFavorite = (product: Product) => {
-    const favs = getLocalFavorites()
-    const exists = favs.products.includes(product.id)
-
-    let updatedProducts: string[]
-    if (exists) {
-      updatedProducts = favs.products.filter((id: string) => id !== product.id)
+  const toggleProductFavorite = useCallback((product: Product) => {
+    if (!user) { toastError('Connexion requise', 'Connectez-vous pour ajouter aux favoris.'); return }
+    const existing = WishlistAPI.filter(w => w.user_id === user.id && w.product_id === product.id)[0]
+    if (existing) {
+      WishlistAPI.delete(existing.id)
       toastSuccess(`"${product.name}" retiré de vos favoris`)
     } else {
-      updatedProducts = [...favs.products, product.id]
+      WishlistAPI.create({ user_id: user.id, product_id: product.id })
       toastSuccess(`"${product.name}" ajouté à vos favoris ❤️`)
     }
+    triggerUpdate()
+  }, [user])
 
-    setLocalFavorites({ ...favs, products: updatedProducts })
-  }
-
-  const toggleHousingFavorite = (housing: Housing) => {
-    const favs = getLocalFavorites()
-    const exists = favs.housings.includes(housing.id)
-
-    let updatedHousings: string[]
-    if (exists) {
-      updatedHousings = favs.housings.filter((id: string) => id !== housing.id)
-      toastSuccess(`"${housing.title}" retiré de vos favoris`)
-    } else {
-      updatedHousings = [...favs.housings, housing.id]
-      toastSuccess(`"${housing.title}" ajouté à vos favoris ❤️`)
+  const toggleHousingFavorite = useCallback((housing: Housing) => {
+    if (!user) { toastError('Connexion requise', 'Connectez-vous pour ajouter aux favoris.'); return }
+    try {
+      const stored = localStorage.getItem('mp_housing_favorites')
+      const favs: string[] = stored ? JSON.parse(stored) : []
+      const exists = favs.includes(housing.id)
+      let updated: string[]
+      if (exists) {
+        updated = favs.filter(id => id !== housing.id)
+        toastSuccess(`"${housing.title}" retiré de vos favoris`)
+      } else {
+        updated = [...favs, housing.id]
+        toastSuccess(`"${housing.title}" ajouté à vos favoris ❤️`)
+      }
+      localStorage.setItem('mp_housing_favorites', JSON.stringify(updated))
+      triggerUpdate()
+    } catch {
+      toastError('Erreur', 'Impossible de mettre à jour les favoris.')
     }
+  }, [user])
 
-    setLocalFavorites({ ...favs, housings: updatedHousings })
-  }
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([])
+  const [favoriteHousings, setFavoriteHousings] = useState<Housing[]>([])
 
-  const favs = getLocalFavorites()
-  const favoriteProducts: Product[] = favs.products
-    .map((id: string) => ProductAPI.get(id))
-    .filter((p: Product | undefined): p is Product => p !== undefined)
+  useEffect(() => {
+    if (!user) {
+      setFavoriteProducts([])
+      setFavoriteHousings([])
+      return
+    }
+    try {
+      const productIds = WishlistAPI.filter(w => w.user_id === user.id).map(w => w.product_id)
+      const products = productIds
+        .map(id => ProductAPI.get(id))
+        .filter((p): p is Product => p !== undefined)
 
-  const favoriteHousings: Housing[] = favs.housings
-    .map((id: string) => HousingAPI.get(id))
-    .filter((h: Housing | undefined): h is Housing => h !== undefined)
+      const stored = localStorage.getItem('mp_housing_favorites')
+      const housingIds: string[] = stored ? JSON.parse(stored) : []
+      const housings = housingIds
+        .map(id => HousingAPI.get(id))
+        .filter((h): h is Housing => h !== undefined)
 
-  const totalCount = favs.products.length + favs.housings.length
+      setFavoriteProducts(products)
+      setFavoriteHousings(housings)
+    } catch {
+      setFavoriteProducts([])
+      setFavoriteHousings([])
+    }
+  }, [user, triggerUpdate])
+
+  const totalCount = favoriteProducts.length + favoriteHousings.length
 
   return {
     favoriteProducts,

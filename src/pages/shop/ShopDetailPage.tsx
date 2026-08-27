@@ -1,25 +1,39 @@
 import { useState, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   MapPin, Phone, MessageSquare, Store, ShieldCheck,
-  ArrowLeft, ShoppingBag, Star, Clock, Truck, RefreshCw, CheckCircle, Search, Map
+  ArrowLeft, ShoppingBag, Star, Clock, Truck, RefreshCw, CheckCircle, Search, Map, Package
 } from 'lucide-react'
-import { ShopAPI, ProductAPI } from '@/lib/store'
+import { ShopAPI, ProductAPI, OrderAPI, ChatAPI, NotificationAPI } from '@/lib/store'
+import type { Product } from '@/types'
 import { formatPrice, cn, buildWhatsAppUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
+import { Input, Textarea } from '@/components/ui/Input'
 import { useCart } from '@/hooks/useCart'
-import { toastSuccess } from '@/components/ui/Toast'
+import { useAuth } from '@/hooks/useAuth'
+import { toastSuccess, toastError } from '@/components/ui/Toast'
 import LeafletMap, { MapMarkerItem } from '@/components/shared/LeafletMap'
+import { ProductCheckoutModal } from '@/components/product/ProductCheckoutModal'
 
 export default function ShopDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { addItem } = useCart()
+  const { user } = useAuth()
   const shop = ShopAPI.get(id || '')
   const products = ProductAPI.filter(p => p.shop_id === id && p.status === 'active')
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('Toutes')
   const [activeTab, setActiveTab] = useState<'products' | 'location' | 'policies'>('products')
+
+  const [orderModalOpen, setOrderModalOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [customerName, setCustomerName] = useState(user?.name || '')
+  const [customerEmail, setCustomerEmail] = useState(user?.email || '')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [orderNote, setOrderNote] = useState('')
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(products.map(p => p.category)))
@@ -34,6 +48,65 @@ export default function ShopDetailPage() {
       return matchesSearch && matchesCat
     })
   }, [products, searchQuery, selectedCategory])
+
+  const openOrderModal = (product: Product) => {
+    if (!user) {
+      toastError('Connexion requise', 'Connectez-vous pour commander.')
+      navigate('/login')
+      return
+    }
+    setSelectedProduct(product)
+    setCustomerName(user?.name || '')
+    setCustomerEmail(user?.email || '')
+    setCustomerPhone('')
+    setOrderNote('')
+    setOrderModalOpen(true)
+  }
+
+  const handlePlaceOrder = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!shop || !selectedProduct || !customerName || !customerEmail || !customerPhone) {
+      toastError('Veuillez remplir tous les champs.')
+      return
+    }
+    const pin = Math.floor(1000 + Math.random() * 9000).toString()
+    const order = OrderAPI.create({
+      shop_id: shop.id,
+      shop_name: shop.name,
+      product_id: selectedProduct.id,
+      product_name: selectedProduct.name,
+      product_price: selectedProduct.price,
+      total: selectedProduct.price,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      status: 'pending_payment',
+      message: orderNote,
+      pin_code: pin,
+      payment_method: shop.mtn_number ? 'mtn' : 'orange',
+    })
+
+    if (selectedProduct.stock > 0) {
+      ProductAPI.update(selectedProduct.id, { stock: selectedProduct.stock - 1 })
+    }
+
+    ChatAPI.create({
+      order_id: order.id,
+      sender_role: 'customer',
+      sender_name: customerName,
+      message: `Bonjour ${shop.name}, j'ai passé commande pour "${selectedProduct.name}" (${formatPrice(selectedProduct.price)}). Je vais effectuer le paiement Mobile Money.`,
+    })
+    NotificationAPI.create({
+      shop_id: shop.id,
+      title: `Nouvelle Commande #${order.id.slice(0, 8)}`,
+      message: `${customerName} a commandé "${selectedProduct.name}". En attente de paiement.`,
+      type: 'order',
+      read: false,
+    })
+    setOrderModalOpen(false)
+    toastSuccess('Commande créée !', 'Veuillez effectuer le paiement et envoyer la preuve.')
+    navigate(`/orders?chat=${order.id}`)
+  }
 
   if (!shop) {
     return (
@@ -52,15 +125,15 @@ export default function ShopDetailPage() {
     latitude: shop.latitude,
     longitude: shop.longitude,
     subtitle: shop.city,
-    image_url: shop.logo_url || shop.banner_url,
+    image_url: shop.logo_url || shop.profile_image || shop.cover_image,
   }] : []
 
   return (
     <div className="min-h-screen pb-16 space-y-8">
       {/* Banner & Pro Header */}
       <div className="relative h-64 md:h-80 bg-gradient-to-r from-primary to-amber-500 overflow-hidden">
-        {shop.banner_url ? (
-          <img src={shop.banner_url} alt={shop.name} className="w-full h-full object-cover" />
+        {shop.cover_image ? (
+          <img src={shop.cover_image} alt={shop.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center opacity-20 text-white font-black text-6xl select-none">
             {shop.name}
@@ -71,7 +144,7 @@ export default function ShopDetailPage() {
         <div className="absolute bottom-6 left-6 right-6 max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4 text-white">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-card border-4 border-background flex items-center justify-center text-primary font-black text-3xl shadow-xl overflow-hidden shrink-0">
-              {shop.logo_url ? <img src={shop.logo_url} alt={shop.name} className="w-full h-full object-cover" /> : shop.name.charAt(0).toUpperCase()}
+              {shop.profile_image ? <img src={shop.profile_image} alt={shop.name} className="w-full h-full object-cover" /> : shop.logo_url ? <img src={shop.logo_url} alt={shop.name} className="w-full h-full object-cover" /> : shop.name.charAt(0).toUpperCase()}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -110,8 +183,8 @@ export default function ShopDetailPage() {
                   product_price: firstProduct ? firstProduct.price : 0,
                   total: firstProduct ? firstProduct.price : 0,
                   customer_name: user?.name || 'Client',
-                  customer_email: user?.email || 'client@marcheplus.cm',
-                  customer_phone: '680195221',
+                  customer_email: user?.email || '',
+                  customer_phone: user?.mtn_number || user?.orange_number || '',
                   status: 'pending_payment',
                   pin_code: pin,
                 })
@@ -129,7 +202,6 @@ export default function ShopDetailPage() {
                   message: `${user?.name || 'Un client'} a ouvert une discussion sur le chat interne.`,
                   type: 'chat',
                   read: false,
-                  created_date: new Date().toISOString(),
                 })
 
                 toastSuccess('Chat plateforme ouvert !', 'La boutique recevra une notification système.')
@@ -248,6 +320,11 @@ export default function ShopDetailPage() {
                     <div>
                       <div className="aspect-square overflow-hidden bg-muted rounded-t-2xl relative">
                         <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        {(product.images && product.images.length > 0) && (
+                          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold">
+                            +{product.images.length} photo{product.images.length > 1 ? 's' : ''}
+                          </span>
+                        )}
                         <div className="absolute top-2 right-2">
                           {product.stock > 0 ? (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/90 text-white shadow">
@@ -269,12 +346,11 @@ export default function ShopDetailPage() {
                       </div>
                     </div>
 
-                    <div className="p-4 pt-0">
+                    <div className="p-4 pt-0 flex gap-2">
                       <Button
                         size="sm"
-                        variant={product.stock > 0 ? "outline" : "ghost"}
-                        disabled={product.stock === 0}
-                        className="w-full text-xs"
+                        variant="outline"
+                        className="flex-1 text-xs"
                         onClick={() => {
                           addItem({
                             product_id: product.id,
@@ -288,8 +364,15 @@ export default function ShopDetailPage() {
                           toastSuccess('Ajouté au panier !')
                         }}
                       >
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        {product.stock > 0 ? 'Ajouter au panier' : 'Épuisé'}
+                        <ShoppingBag className="w-3.5 h-3.5" /> Panier
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() => openOrderModal(product)}
+                        className="flex-1 bg-primary hover:bg-primary/90 text-white text-xs font-bold"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" /> Commander directement
                       </Button>
                     </div>
                   </div>
@@ -299,6 +382,17 @@ export default function ShopDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Comprehensive Direct Checkout Modal */}
+      {selectedProduct && (
+        <ProductCheckoutModal
+          open={orderModalOpen}
+          onClose={() => setOrderModalOpen(false)}
+          product={selectedProduct}
+          shop={shop}
+          quantity={1}
+        />
+      )}
     </div>
   )
 }

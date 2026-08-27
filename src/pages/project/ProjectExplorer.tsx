@@ -30,7 +30,7 @@ export default function ProjectExplorer() {
             <Database className="w-5 h-5" /> Persistance des données
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Store unifié en <strong>localStorage</strong> simulant les API backend Base44, incluant seed automatique de boutiques et produits de démo au premier démarrage.
+            Store unifié en <strong>localStorage</strong> simulant les API backend Base44, avec persistance des données utilisateur et catalogue.
           </p>
         </div>
       </div>

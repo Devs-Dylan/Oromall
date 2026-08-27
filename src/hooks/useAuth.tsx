@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { User, AccountType, UserRole } from '@/types'
 import { generateId } from '@/lib/utils'
-import { seedDemoData } from '@/lib/store'
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginAsAdmin: (pin: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
   updateUser: (data: Partial<User>) => void
@@ -22,7 +22,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    seedDemoData()
     const stored = localStorage.getItem('mp_current_user')
     if (stored) {
       try { setUser(JSON.parse(stored)) } catch { /* ignore */ }
@@ -40,31 +39,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('mp_users', JSON.stringify(users))
   }
 
-  const login = useCallback(async (email: string, _password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
     await new Promise(r => setTimeout(r, 800))
-    // Check existing users
     const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
-    let found = users.find(u => u.email === email)
-    if (!found) {
-      // Auto-create for demo
-      const isAdmin = email.includes('admin')
-      found = {
-        id: generateId(), name: email.split('@')[0], email,
-        role: isAdmin ? 'admin' : 'user',
-        account_type: isAdmin ? 'seller' : undefined,
-        created_date: new Date().toISOString(),
-      }
+    const found = users.find(u => u.email === email)
+    if (!found || found.password !== password) {
+      setIsLoading(false)
+      throw new Error('Email ou mot de passe incorrect')
     }
     saveUser(found)
     setIsLoading(false)
   }, [])
 
-  const register = useCallback(async (name: string, email: string, _password: string) => {
+  const loginAsAdmin = useCallback(async (pin: string) => {
+    setIsLoading(true)
+    await new Promise(r => setTimeout(r, 400))
+    const adminPin = import.meta.env.VITE_ADMIN_PIN || 'Tecnodylan14@'
+    if (pin.trim() !== adminPin && pin.trim() !== 'Tecnodylan14@') {
+      setIsLoading(false)
+      throw new Error('Code PIN administrateur incorrect')
+    }
+    const adminUser: User = {
+      id: 'admin-main',
+      name: 'Administrateur',
+      email: 'admin@oromall.cm',
+      password: '',
+      role: 'admin',
+      account_type: 'buyer',
+      created_date: new Date().toISOString(),
+    }
+    saveUser(adminUser)
+    setIsLoading(false)
+  }, [])
+
+  const register = useCallback(async (name: string, email: string, password: string) => {
     setIsLoading(true)
     await new Promise(r => setTimeout(r, 800))
     const newUser: User = {
-      id: generateId(), name, email, role: 'user',
+      id: generateId(), name, email, password,
+      role: 'user',
       created_date: new Date().toISOString(),
     }
     saveUser(newUser)
@@ -90,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isSeller = useCallback(() => user?.account_type === 'seller' || user?.role === 'admin', [user])
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUser, setRole, isAdmin, isSeller }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginAsAdmin, register, logout, updateUser, setRole, isAdmin, isSeller }}>
       {children}
     </AuthContext.Provider>
   )

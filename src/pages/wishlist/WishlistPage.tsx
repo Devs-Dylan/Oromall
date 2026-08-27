@@ -13,7 +13,7 @@ export default function WishlistPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'housing'>('products')
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-8 space-y-8">
       {/* Header */}
       <div className="card-glass p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-red-500/10 via-card to-background border-red-500/20">
         <div className="flex items-center gap-3">

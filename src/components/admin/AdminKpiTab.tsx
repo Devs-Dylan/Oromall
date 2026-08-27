@@ -42,25 +42,25 @@ export function AdminKpiTab({ orders, shops, users, products, commissionRate }: 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="GMV Plateforme Total"
+          label="GMV Plateforme Total"
           value={formatPrice(totalGMV)}
           subtitle="Volume brut de marchandise"
           icon={<DollarSign className="w-6 h-6 text-emerald-400" />}
         />
         <StatCard
-          title="Revenus Commissions (5%)"
+          label="Revenus Commissions (5%)"
           value={formatPrice(platformCommissions)}
           subtitle="Bénéfice net plateforme"
           icon={<TrendingUp className="w-6 h-6 text-primary" />}
         />
         <StatCard
-          title="Compte Escrow MoMo"
+          label="Compte Escrow MoMo"
           value={formatPrice(escrowBalance)}
           subtitle="Fonds sous séquestre sécurisé"
           icon={<Layers className="w-6 h-6 text-purple-400" />}
         />
         <StatCard
-          title="Boutiques Actives"
+          label="Boutiques Actives"
           value={shops.length}
           subtitle={`${shops.filter(s => s.is_verified).length} vérifiées (🛡️)`}
           icon={<Store className="w-6 h-6 text-amber-400" />}

@@ -10,7 +10,7 @@ export default function ReferralPage() {
   const { user } = useAuth()
   const [copied, setCopied] = useState(false)
 
-  const referralCode = user ? `REF-${user.name.toUpperCase().slice(0, 4)}-${user.id.slice(0, 4)}` : 'REF-DEMO-1234'
+  const referralCode = user ? `REF-${user.name.toUpperCase().slice(0, 4)}-${user.id.slice(0, 4)}` : ''
   const referralLink = `${window.location.origin}/register?ref=${referralCode}`
 
   const copyLink = () => {
@@ -27,9 +27,9 @@ export default function ReferralPage() {
         <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center text-white mx-auto shadow-lg">
           <Gift className="w-8 h-8" />
         </div>
-        <h1 className="text-3xl md:text-4xl font-display font-extrabold text-foreground">Programme de Parrainage MarchéPlus</h1>
+        <h1 className="text-3xl md:text-4xl font-display font-extrabold text-foreground">Programme de Parrainage OroMall</h1>
         <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-          Invitez vos amis et camarades de campus à créer une boutique ou acheter sur MarchéPlus et gagnez <strong className="text-primary font-bold">1 000 FCFA</strong> par vendeur inscrit !
+          Invitez vos amis et contacts à créer une boutique ou acheter sur OroMall et gagnez <strong className="text-primary font-bold">1 000 FCFA</strong> par vendeur inscrit !
         </p>
 
         {/* Copy Link Input */}

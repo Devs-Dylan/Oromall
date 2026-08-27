@@ -3,7 +3,8 @@ import { generateId } from './utils'
 import type {
   Shop, Product, Order, CartItem, SellerActivation,
   P2PAccount, PromoCode, Referral, Review, Wishlist, Report, ChatMessage, User,
-  Housing, VisitBooking, AuditLog, UserNotification
+  Housing, VisitBooking, AuditLog, UserNotification, AvailabilityRequest, Commission, Dispute,
+  Subscription, ShopProfile, VisitRequest, Advertisement
 } from '@/types'
 
 function getStore<T>(key: string): T[] {
@@ -61,246 +62,485 @@ export const HousingAPI = createCRUD<Housing>('mp_housing')
 export const VisitBookingAPI = createCRUD<VisitBooking>('mp_visit_bookings')
 export const AuditLogAPI = createCRUD<AuditLog>('mp_audit_logs')
 export const NotificationAPI = createCRUD<UserNotification>('mp_notifications')
+export const AvailabilityRequestAPI = createCRUD<AvailabilityRequest>('mp_availability_requests')
+export const CommissionAPI = createCRUD<Commission>('mp_commissions')
+export const DisputeAPI = createCRUD<Dispute>('mp_disputes')
+export const SubscriptionAPI = createCRUD<Subscription>('mp_subscriptions')
+export const ShopProfileAPI = createCRUD<ShopProfile>('mp_shop_profiles')
+export const VisitRequestAPI = createCRUD<VisitRequest>('mp_visit_requests')
+export const AdAPI = createCRUD<Advertisement>('mp_ads')
 
-// ===== Seed Demo Data =====
-export function seedDemoData() {
-  if (localStorage.getItem('mp_seeded')) return
-
-  const shopIds = [generateId(), generateId(), generateId(), generateId()]
-
-  const shops: Shop[] = [
+// Seed default Ads if empty
+if (getStore<Advertisement>('mp_ads').length === 0) {
+  setStore<Advertisement>('mp_ads', [
     {
-      id: shopIds[0], name: 'TechHub Yaoundé', description: 'Électronique neuve et reconditionnée, accessoires, téléphones. Service après-vente garanti.',
-      owner_name: 'Armel Nkeng', owner_email: 'armel@example.cm', owner_id: 'demo1',
-      shop_type: 'specialized', status: 'active', category: 'Électronique',
-      city: 'Yaoundé', address: 'Avenue Kennedy, Rue des boutiques, Yaoundé',
-      whatsapp_number: '237680195221', mtn_number: '680195221', orange_number: '691576677',
-      latitude: 3.868, longitude: 11.521, logo_url: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=200',
-      banner_url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1000',
-      business_hours: 'Lun - Sam: 08h00 - 19h30', rating: 4.8, reviews_count: 24, is_verified: true,
-      policies: { shipping: 'Livraison gratuite sur le campus universitaire', returns: 'Retours acceptés sous 7 jours', guarantee: 'Garantie 6 mois sur le reconditionné' },
-      social_links: { facebook: 'https://facebook.com', website: 'https://techhub-cm.com' },
-      created_date: new Date(Date.now() - 30 * 86400000).toISOString(), updated_date: now(),
+      id: 'ad-1',
+      title: 'Grand Spécial Rentrée Académique',
+      subtitle: 'Jusqu\'à -35% sur les PC portables, smartphones et fournitures universitaires',
+      image_url: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200',
+      link_url: '/?cat=Électronique',
+      cta_text: 'Profiter des réductions',
+      position: 'hero',
+      status: 'active',
+      badge: 'PROMOTION GOLD ⭐',
+      badge_color: 'gold',
+      target_city: 'Toutes',
+      priority: 10,
+      impressions_count: 1420,
+      clicks_count: 318,
+      created_date: now(),
+      updated_date: now(),
     },
     {
-      id: shopIds[1], name: 'Bella Mode Douala', description: 'Mode féminine tendance pour les étudiantes. Vêtements, sacs, chaussures et accessoires.',
-      owner_name: 'Sandra Biya', owner_email: 'sandra@example.cm', owner_id: 'demo2',
-      shop_type: 'individual', status: 'active', category: 'Mode',
-      city: 'Douala', address: 'Carrefour Bonakouamang, Akwa, Douala',
-      whatsapp_number: '237680195221', mtn_number: '680195221', orange_number: '691576677',
-      latitude: 4.048, longitude: 9.704, logo_url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=200',
-      banner_url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1000',
-      business_hours: 'Mar - Dim: 09h00 - 20h00', rating: 4.9, reviews_count: 18, is_verified: true,
-      policies: { shipping: 'Expédition rapide vers toutes les villes du Cameroun', returns: 'Échange sous 3 jours' },
-      created_date: new Date(Date.now() - 15 * 86400000).toISOString(), updated_date: now(),
+      id: 'ad-2',
+      title: 'Résidences Étudiantes Bastos & Ngoa-Ekellé',
+      subtitle: 'Studios meublés avec eau forfaitaire et gardien 24h/24 disponibles immédiatement',
+      image_url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200',
+      link_url: '/housing',
+      cta_text: 'Explorer les logements',
+      position: 'marketplace_middle',
+      status: 'active',
+      badge: 'LOGEMENTS VÉRIFIÉS 🏠',
+      badge_color: 'emerald',
+      target_city: 'Yaoundé',
+      priority: 8,
+      impressions_count: 980,
+      clicks_count: 245,
+      created_date: now(),
+      updated_date: now(),
     },
     {
-      id: shopIds[2], name: 'Campus Livres Bafoussam', description: 'Manuels universitaires, polycopiés, romans, livres scolaires d\'occasion.',
-      owner_name: 'Paul Foning', owner_email: 'paul@example.cm', owner_id: 'demo3',
-      shop_type: 'individual', status: 'active', category: 'Livres',
-      city: 'Bafoussam', address: 'Quartier Tamdja, face Université',
-      whatsapp_number: '237680195221', orange_number: '691576677', mtn_number: '680195221',
-      latitude: 5.477, longitude: 10.417, logo_url: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=200',
-      banner_url: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1000',
-      business_hours: 'Lun - Ven: 07h30 - 18h00', rating: 4.6, reviews_count: 12, is_verified: false,
-      created_date: new Date(Date.now() - 5 * 86400000).toISOString(), updated_date: now(),
+      id: 'ad-3',
+      title: 'Paiements Sécurisés MTN & Orange Money',
+      subtitle: 'Achetez et louez en toute confiance avec validation d\'administrateur et support',
+      image_url: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200',
+      link_url: '/faq',
+      cta_text: 'En savoir plus',
+      position: 'top_banner',
+      status: 'active',
+      badge: 'SÉCURITÉ GARANTIE 🔒',
+      badge_color: 'blue',
+      target_city: 'Toutes',
+      priority: 9,
+      impressions_count: 2310,
+      clicks_count: 412,
+      created_date: now(),
+      updated_date: now(),
     },
     {
-      id: shopIds[3], name: 'FreshFood Cameroun', description: 'Produits alimentaires locaux, épices du village, plats cuisinés, jus de fruits naturels.',
-      owner_name: 'Marie Mbassi', owner_email: 'marie@example.cm', owner_id: 'demo4',
-      shop_type: 'magasin', status: 'active', category: 'Alimentation',
-      city: 'Yaoundé', address: 'Marché Mvog-Mbi, Stand 42, Yaoundé',
-      whatsapp_number: '237680195221', mtn_number: '680195221', orange_number: '691576677',
-      latitude: 3.855, longitude: 11.515, logo_url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
-      banner_url: 'https://images.unsplash.com/photo-1506484381205-f7945653044d?w=1000',
-      business_hours: '7j/7: 06h00 - 21h00', rating: 4.7, reviews_count: 31, is_verified: true,
-      created_date: new Date(Date.now() - 2 * 86400000).toISOString(), updated_date: now(),
-    },
-  ]
+      id: 'ad-4',
+      title: 'Vendez vos produits sur OroMall en 2 minutes',
+      subtitle: 'Ouvrez votre vitrine en ligne et touchez des milliers de clients partout au Cameroun',
+      image_url: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1200',
+      link_url: '/seller/onboarding',
+      cta_text: 'Créer ma boutique',
+      position: 'ticker',
+      status: 'active',
+      badge: 'DEVENEZ VENDEUR 🛍️',
+      badge_color: 'purple',
+      target_city: 'Toutes',
+      priority: 7,
+      impressions_count: 540,
+      clicks_count: 112,
+      created_date: now(),
+      updated_date: now(),
+    }
+  ])
+}
 
-  const products: Product[] = [
-    { id: generateId(), shop_id: shopIds[0], shop_name: 'TechHub Yaoundé', name: 'iPhone 13 Pro reconditionné', description: 'iPhone 13 Pro 256Go, état excellent, batterie 89%, vient avec chargeur original.', price: 450000, image_url: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400', images: [], category: 'Électronique', stock: 2, condition: 'tres_bon', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[0], shop_name: 'TechHub Yaoundé', name: 'Samsung Galaxy A54', description: 'Samsung Galaxy A54 128Go neuf, sous scellé, garantie 1 an.', price: 185000, image_url: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=400', images: [], category: 'Électronique', stock: 5, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[0], shop_name: 'TechHub Yaoundé', name: 'AirPods Pro 2ème génération', description: 'AirPods Pro 2 neufs, jamais ouverts, prix négociable.', price: 95000, image_url: 'https://images.unsplash.com/photo-1613040809024-b4ef7ba99bc3?w=400', images: [], category: 'Électronique', stock: 3, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[0], shop_name: 'TechHub Yaoundé', name: 'Laptop HP EliteBook 840', description: 'HP EliteBook i5, 16Go RAM, 512Go SSD. Parfait pour étudiants.', price: 320000, image_url: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400', images: [], category: 'Électronique', stock: 1, condition: 'bon', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[1], shop_name: 'Bella Mode Douala', name: 'Robe wax africaine', description: 'Belle robe en wax coloré, taille 38-42, motifs africains modernes.', price: 15000, image_url: 'https://images.unsplash.com/photo-1594938298603-c8148c4b7f09?w=400', images: [], category: 'Mode', stock: 10, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[1], shop_name: 'Bella Mode Douala', name: 'Sac à main tendance', description: 'Sac en cuir synthétique, plusieurs compartiments, couleurs variées.', price: 12000, image_url: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400', images: [], category: 'Mode', stock: 8, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[1], shop_name: 'Bella Mode Douala', name: 'Sneakers Nike Air Force', description: 'Nike Air Force 1 pointures 36-45, original avec boîte.', price: 45000, image_url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400', images: [], category: 'Mode', stock: 4, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[2], shop_name: 'Campus Livres Bafoussam', name: 'Mathématiques Terminale', description: 'Manuel scolaire de mathématiques Terminale C, bon état, annotations utiles.', price: 3500, image_url: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400', images: [], category: 'Livres', stock: 6, condition: 'bon', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[2], shop_name: 'Campus Livres Bafoussam', name: 'Droit des affaires OHADA', description: 'Traité de droit OHADA, édition 2022, peu utilisé.', price: 8000, image_url: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400', images: [], category: 'Livres', stock: 3, condition: 'tres_bon', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[3], shop_name: 'FreshFood Cameroun', name: 'Panier épices locales', description: 'Assortiment d\'épices camerounaises : poivre, gingembre, ail frais, piments.', price: 5000, image_url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=400', images: [], category: 'Alimentation', stock: 20, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[3], shop_name: 'FreshFood Cameroun', name: 'Jus de gingembre naturel', description: 'Jus de gingembre artisanal 1L, sans conservateurs, livraison Yaoundé.', price: 2500, image_url: 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400', images: [], category: 'Alimentation', stock: 15, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-    { id: generateId(), shop_id: shopIds[0], shop_name: 'TechHub Yaoundé', name: 'Chargeur USB-C 65W', description: 'Chargeur universel USB-C 65W compatible MacBook, HP, Samsung, etc.', price: 8500, image_url: 'https://images.unsplash.com/photo-1625772452859-1c03d5bf1137?w=400', images: [], category: 'Électronique', stock: 12, condition: 'neuf', status: 'active', created_date: now(), updated_date: now() },
-  ]
-
-  const housings: Housing[] = [
+// Seed default Shops if empty
+if (getStore<Shop>('mp_shops').length === 0) {
+  setStore<Shop>('mp_shops', [
     {
-      id: generateId(),
-      title: 'Studio Moderne Meublé Cité U Ngaoundéré / Ngoa-Ekellé',
-      description: 'Superbe studio totalement meublé à 3 minutes à pied du campus universitaire Ngoa-Ekellé. Lit double, bureau d\'étude, kitchenette équipée, compteur d\'eau et d\'électricité individuel. Idéal pour étudiant.',
-      category: 'studio',
-      price: 65000,
-      price_type: 'month',
+      id: 'shop-1',
+      name: 'TechCam Yaoundé',
+      description: 'Spécialiste Informatique, MacBook, Smartphones et Accessoires d\'Origine à Yaoundé.',
+      owner_name: 'Jean-Paul Mbida',
+      owner_email: 'jeanpaul.mbida@gmail.com',
+      owner_id: 'user-seller-1',
+      shop_type: 'specialized',
+      status: 'active',
+      category: 'Électronique',
       city: 'Yaoundé',
-      neighborhood: 'Ngoa-Ekellé',
-      address: 'Derrière le Rectorat, Ngoa-Ekellé, Yaoundé',
-      latitude: 3.856,
-      longitude: 11.503,
-      surface_sqm: 28,
+      address: 'Avenue Kennedy, Immeuble Horizon 2ème étage',
+      whatsapp_number: '680195221',
+      mtn_number: '680195221',
+      orange_number: '691576677',
+      latitude: 3.86667,
+      longitude: 11.51667,
+      logo_url: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=400',
+      rating: 4.9,
+      reviews_count: 24,
+      is_verified: true,
+      created_date: now(),
+      updated_date: now(),
+    },
+    {
+      id: 'shop-2',
+      name: 'Mode & Élégance Douala',
+      description: 'Boutique de vêtements tendance, chaussures de marque et maroquinerie de qualité à Douala Akwa.',
+      owner_name: 'Marie-Noëlle Eboa',
+      owner_email: 'marienoelle.eboa@gmail.com',
+      owner_id: 'user-seller-2',
+      shop_type: 'individual',
+      status: 'active',
+      category: 'Mode',
+      city: 'Douala',
+      address: 'Boulevard de la Liberté, Akwa',
+      whatsapp_number: '691576677',
+      mtn_number: '677123456',
+      orange_number: '691576677',
+      latitude: 4.05105,
+      longitude: 9.76787,
+      logo_url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400',
+      rating: 4.8,
+      reviews_count: 18,
+      is_verified: true,
+      created_date: now(),
+      updated_date: now(),
+    },
+    {
+      id: 'shop-3',
+      name: 'Résidences Bastos Prestige',
+      description: 'Agence Immobilière spécialisée dans les studios et appartements haut de standing à Yaoundé Bastos.',
+      owner_name: 'Alphonse Tagne',
+      owner_email: 'alphonse.tagne@gmail.com',
+      owner_id: 'user-seller-3',
+      shop_type: 'specialized',
+      status: 'active',
+      category: 'Services',
+      city: 'Yaoundé',
+      address: 'Quartier Bastos, Carrefour Dragages',
+      whatsapp_number: '677987654',
+      mtn_number: '677987654',
+      orange_number: '699887766',
+      latitude: 3.88333,
+      longitude: 11.51667,
+      logo_url: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400',
+      rating: 5.0,
+      reviews_count: 32,
+      is_verified: true,
+      created_date: now(),
+      updated_date: now(),
+    }
+  ])
+}
+
+// Seed default Products if empty
+if (getStore<Product>('mp_products').length === 0) {
+  setStore<Product>('mp_products', [
+    {
+      id: 'prod-1',
+      shop_id: 'shop-1',
+      shop_name: 'TechCam Yaoundé',
+      name: 'Apple MacBook Pro M2 16" 512GB - Gris Sidéral',
+      description: 'Puce M2 Pro performante, 16 Go de RAM, écran Liquid Retina XDR. Idéal pour les professionnels, développeurs et designers.',
+      price: 1250000,
+      compare_at_price: 1350000,
+      category: 'Électronique',
+      condition: 'neuf',
+      stock: 5,
+      status: 'active',
+      is_featured: true,
+      city: 'Yaoundé',
+      image_url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800',
+      images: [
+        'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800',
+        'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=800'
+      ],
+      whatsapp_number: '680195221',
+      created_date: now(),
+      updated_date: now(),
+    },
+    {
+      id: 'prod-2',
+      shop_id: 'shop-1',
+      shop_name: 'TechCam Yaoundé',
+      name: 'iPhone 15 Pro Max 256GB Titanium',
+      description: 'Écran Super Retina XDR 120Hz, triple capteur photo 48 MP, autonomie exceptionnelle. Produit scellé avec garantie.',
+      price: 950000,
+      compare_at_price: 1020000,
+      category: 'Électronique',
+      condition: 'neuf',
+      stock: 8,
+      status: 'active',
+      is_featured: true,
+      city: 'Yaoundé',
+      image_url: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800',
+      whatsapp_number: '680195221',
+      created_date: now(),
+      updated_date: now(),
+    },
+    {
+      id: 'prod-3',
+      shop_id: 'shop-2',
+      shop_name: 'Mode & Élégance Douala',
+      name: 'Robe de Soirée Africaine en Pagne Wax Moderne',
+      description: 'Confection artisanale sur-mesure, tissu Wax de haute qualité, coupe chic pour cérémonies et événements.',
+      price: 45000,
+      compare_at_price: 55000,
+      category: 'Mode',
+      condition: 'neuf',
+      stock: 12,
+      status: 'active',
+      is_featured: false,
+      city: 'Douala',
+      image_url: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=800',
+      whatsapp_number: '691576677',
+      created_date: now(),
+      updated_date: now(),
+    },
+    {
+      id: 'prod-4',
+      shop_id: 'shop-2',
+      shop_name: 'Mode & Élégance Douala',
+      name: 'Chaussures richelieu Cuir Véritable Homme',
+      description: 'Chaussures habillées en cuir véritable avec semelle cousue. Élégantes et confortables pour le bureau.',
+      price: 38000,
+      compare_at_price: 48000,
+      category: 'Mode',
+      condition: 'neuf',
+      stock: 10,
+      status: 'active',
+      is_featured: true,
+      city: 'Douala',
+      image_url: 'https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=800',
+      whatsapp_number: '691576677',
+      created_date: now(),
+      updated_date: now(),
+    }
+  ])
+}
+
+// Seed default Housing if empty
+if (getStore<Housing>('mp_housing').length === 0) {
+  setStore<Housing>('mp_housing', [
+    {
+      id: 'house-1',
+      title: 'Studio Meublé Moderne à Bastos Ambassade',
+      description: 'Superbe studio haut standing meublé avec climatisation, eau de forage forfaitaire, gardien 24h/24 et parking réservé.',
+      category: 'studio',
+      property_type: 'residential',
+      price: 180000,
+      price_type: 'month',
+      price_negotiable: false,
+      deposit_amount: 360000,
+      payment_frequency: 'monthly',
+      city: 'Yaoundé',
+      neighborhood: 'Bastos',
+      address: 'Rue des Ambassades, près de l\'Ambassade d\'Allemagne',
+      latitude: 3.88333,
+      longitude: 11.51667,
+      surface_sqm: 45,
       bedrooms: 1,
       bathrooms: 1,
+      living_rooms: 1,
+      kitchens: 1,
       furnished: true,
-      amenities: ['wifi', 'eau_gratuite', 'gardien', 'parking', 'climatisation'],
-      image_url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
+      air_conditioning: true,
+      water_source: 'borehole',
+      electricity_source: 'grid',
+      amenities: ['wifi', 'eau_gratuite', 'gardien', 'parking', 'climatisation', 'tv', 'cuisine_equipee', 'salon_meuble'],
       images: [
-        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600',
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600'
+        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000',
+        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1000'
       ],
-      owner_name: 'Agence Immobilière Campus',
-      owner_email: 'immo.campus@gmail.cm',
-      owner_phone: '+237699112233',
-      whatsapp_number: '237699112233',
+      image_url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000',
+      owner_name: 'Alphonse Tagne (Prestige Residence)',
+      owner_email: 'alphonse.tagne@gmail.com',
+      owner_phone: '677987654',
+      whatsapp_number: '677987654',
       status: 'available',
       rating: 4.9,
       reviews_count: 14,
       created_date: now(),
-      updated_date: now()
+      updated_date: now(),
     },
     {
-      id: generateId(),
-      title: 'Appartement 2 Chambres Logbessou Bonamoussadi',
-      description: 'Appartement spacieux 2 chambres, 1 grand salon lumineux, cuisine avec placards, 2 douches. Eau de forrage en permanence, groupe électrogène automatique, parking sécurisé 24h/24.',
+      id: 'house-2',
+      title: 'Appartement 3 Chambres & Grand Salon à Bonapriso',
+      description: 'Spacieux appartement meublé idéal pour familles ou séjours d\'affaires à Douala Bonapriso. Balcon avec vue panoramique.',
       category: 'appartement',
-      price: 120000,
+      property_type: 'residential',
+      price: 350000,
       price_type: 'month',
+      price_negotiable: true,
+      deposit_amount: 700000,
+      payment_frequency: 'monthly',
       city: 'Douala',
-      neighborhood: 'Bonamoussadi',
-      address: 'Avenue de la République, Bonamoussadi, Douala',
-      latitude: 4.081,
-      longitude: 9.742,
-      surface_sqm: 75,
-      bedrooms: 2,
+      neighborhood: 'Bonapriso',
+      address: 'Avenue de la République, Bonapriso',
+      latitude: 4.03333,
+      longitude: 9.68333,
+      surface_sqm: 120,
+      bedrooms: 3,
       bathrooms: 2,
-      furnished: false,
-      amenities: ['eau_gratuite', 'groupe_electrogene', 'gardien', 'parking'],
-      image_url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600',
-      images: [
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600',
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=600'
-      ],
-      owner_name: 'Bailleur M. Tagne',
-      owner_email: 'tagne@example.cm',
-      owner_phone: '+237677889900',
-      whatsapp_number: '237677889900',
-      status: 'available',
-      rating: 4.7,
-      reviews_count: 8,
-      created_date: now(),
-      updated_date: now()
-    },
-    {
-      id: generateId(),
-      title: 'Chambre Étudiante Propre Molyko Buea',
-      description: 'Chambre individuelle sécurisée à Molyko Buea, à proximité de l\'Université de Buea. Douche interne, sol carrelé, balcon, sécurité assurée par un gardien nuit et jour.',
-      category: 'chambre',
-      price: 35000,
-      price_type: 'month',
-      city: 'Buea',
-      neighborhood: 'Molyko',
-      address: 'Molyko University Road, Buea',
-      latitude: 4.156,
-      longitude: 9.241,
-      surface_sqm: 18,
-      bedrooms: 1,
-      bathrooms: 1,
-      furnished: false,
-      amenities: ['eau_gratuite', 'gardien'],
-      image_url: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600',
-      images: [
-        'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600'
-      ],
-      owner_name: 'Chief Njoh Residence',
-      owner_email: 'njoh@example.cm',
-      owner_phone: '+237675123456',
-      whatsapp_number: '237675123456',
-      status: 'available',
-      rating: 4.5,
-      reviews_count: 6,
-      created_date: now(),
-      updated_date: now()
-    },
-    {
-      id: generateId(),
-      title: 'Villa Haut Standing Bastos Yaoundé avec Piscine',
-      description: 'Magnifique villa de 4 chambres, grand séjour, jardin paysager, piscine, dépendance pour le personnel. Climatisation centrale, sécurité armée 24h/24.',
-      category: 'villa',
-      price: 450000,
-      price_type: 'month',
-      city: 'Yaoundé',
-      neighborhood: 'Bastos',
-      address: 'Quartier des Ambassades, Bastos, Yaoundé',
-      latitude: 3.889,
-      longitude: 11.512,
-      surface_sqm: 350,
-      bedrooms: 4,
-      bathrooms: 4,
+      living_rooms: 1,
+      kitchens: 1,
       furnished: true,
-      amenities: ['wifi', 'eau_gratuite', 'groupe_electrogene', 'gardien', 'parking', 'climatisation', 'piscine'],
-      image_url: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600',
+      air_conditioning: true,
+      water_source: 'city',
+      electricity_source: 'grid',
+      amenities: ['wifi', 'gardien', 'parking', 'climatisation', 'terrasse', 'cuisine_equipee', 'groupe_electrogene'],
       images: [
-        'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600',
-        'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600'
+        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1000',
+        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1000'
       ],
-      owner_name: 'Prestige Immo Cameroun',
-      owner_email: 'contact@prestigeimmo.cm',
-      owner_phone: '+237699001122',
-      whatsapp_number: '237699001122',
-      status: 'available',
-      rating: 5.0,
-      reviews_count: 9,
-      created_date: now(),
-      updated_date: now()
-    },
-    {
-      id: generateId(),
-      title: 'Studio meublé de passage par jour - Akwa Douala',
-      description: 'Studio climatisé pour vos séjours courts et voyages d\'affaires à Douala Akwa. Smart TV, Wifi haut débit 5G, cuisine équipée, service de ménage quotidien.',
-      category: 'studio',
-      price: 25000,
-      price_type: 'day',
-      city: 'Douala',
-      neighborhood: 'Akwa',
-      address: 'Boulevard de la Liberté, Akwa, Douala',
-      latitude: 4.051,
-      longitude: 9.696,
-      surface_sqm: 32,
-      bedrooms: 1,
-      bathrooms: 1,
-      furnished: true,
-      amenities: ['wifi', 'climatisation', 'tv', 'eau_gratuite', 'gardien'],
-      image_url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600',
-      images: [
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600'
-      ],
-      owner_name: 'Residence Akwa Comfort',
-      owner_email: 'comfort.akwa@gmail.cm',
-      owner_phone: '+237699445566',
-      whatsapp_number: '237699445566',
+      image_url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1000',
+      owner_name: 'Société Immobilière Bonapriso',
+      owner_email: 'immo.bonapriso@gmail.com',
+      owner_phone: '699887766',
+      whatsapp_number: '699887766',
       status: 'available',
       rating: 4.8,
-      reviews_count: 22,
+      reviews_count: 10,
       created_date: now(),
-      updated_date: now()
+      updated_date: now(),
     }
-  ]
-
-  setStore('mp_shops', shops)
-  setStore('mp_products', products)
-  setStore('mp_housing', housings)
-  setStore('mp_orders', [])
-  setStore('mp_activations', [])
-  setStore('mp_visit_bookings', [])
-  localStorage.setItem('mp_seeded', '1')
+  ])
 }
+
+// Seed default Subscriptions if empty
+if (getStore<Subscription>('mp_subscriptions').length === 0) {
+  const futureDate = new Date()
+  futureDate.setDate(futureDate.getDate() + 28)
+
+  setStore<Subscription>('mp_subscriptions', [
+    {
+      id: 'sub-1',
+      shop_id: 'shop-1',
+      shop_name: 'TechCam Yaoundé',
+      owner_name: 'Jean-Paul Mbida',
+      owner_email: 'jeanpaul.mbida@gmail.com',
+      status: 'active',
+      amount: 15000,
+      currency: 'XAF',
+      start_date: now(),
+      end_date: futureDate.toISOString(),
+      payment_method: 'mtn',
+      payment_reference: 'MOMO983472948',
+      days_remaining: 28,
+      created_date: now(),
+      updated_date: now(),
+    },
+    {
+      id: 'sub-2',
+      shop_id: 'shop-2',
+      shop_name: 'Mode & Élégance Douala',
+      owner_name: 'Marie-Noëlle Eboa',
+      owner_email: 'marienoelle.eboa@gmail.com',
+      status: 'active',
+      amount: 15000,
+      currency: 'XAF',
+      start_date: now(),
+      end_date: futureDate.toISOString(),
+      payment_method: 'orange',
+      payment_reference: 'OM774829381',
+      days_remaining: 25,
+      created_date: now(),
+      updated_date: now(),
+    },
+    {
+      id: 'sub-3',
+      shop_id: 'shop-3',
+      shop_name: 'Résidences Bastos Prestige',
+      owner_name: 'Alphonse Tagne',
+      owner_email: 'alphonse.tagne@gmail.com',
+      status: 'active',
+      amount: 15000,
+      currency: 'XAF',
+      start_date: now(),
+      end_date: futureDate.toISOString(),
+      payment_method: 'mtn',
+      payment_reference: 'MOMO1294829384',
+      days_remaining: 29,
+      created_date: now(),
+      updated_date: now(),
+    }
+  ])
+}
+
+// Seed default Orders & Commissions if empty
+if (getStore<Order>('mp_orders').length === 0) {
+  const o1 = {
+    id: 'ord-1001',
+    shop_id: 'shop-1',
+    shop_name: 'TechCam Yaoundé',
+    product_id: 'prod-1',
+    product_name: 'Apple MacBook Pro M2 16"',
+    product_price: 1250000,
+    total: 1250000,
+    customer_name: 'Paul Emmanuel Nkoa',
+    customer_email: 'p.nkoa@gmail.com',
+    customer_phone: '677112233',
+    status: 'payment_verified' as const,
+    payment_method: 'mtn' as const,
+    payment_reference: 'TXN1294829384',
+    payment_verified: true,
+    withdrawal_status: 'verified' as const,
+    pin_code: '4829',
+    created_date: now(),
+    updated_date: now(),
+  }
+
+  const o2 = {
+    id: 'ord-1002',
+    shop_id: 'shop-2',
+    shop_name: 'Mode & Élégance Douala',
+    product_id: 'prod-3',
+    product_name: 'Robe de Soirée Africaine',
+    product_price: 45000,
+    total: 45000,
+    customer_name: 'Chantal Bella',
+    customer_email: 'chantal.bella@yahoo.fr',
+    customer_phone: '699445566',
+    status: 'payment_verified' as const,
+    payment_method: 'orange' as const,
+    payment_reference: 'OM983472948',
+    payment_verified: true,
+    withdrawal_status: 'pending' as const,
+    pin_code: '1942',
+    created_date: now(),
+    updated_date: now(),
+  }
+
+  setStore<Order>('mp_orders', [o1, o2])
+
+  if (getStore<Commission>('mp_commissions').length === 0) {
+    setStore<Commission>('mp_commissions', [
+      {
+        id: 'comm-1',
+        order_id: o1.id,
+        shop_id: 'shop-1',
+        shop_name: 'TechCam Yaoundé',
+        vendor_name: 'Jean-Paul Mbida',
+        vendor_email: 'jeanpaul.mbida@gmail.com',
+        order_total: 1250000,
+        rate: 2,
+        amount: 25000, // 2% of 1,250,000 FCFA
+        status: 'pending',
+        created_date: now(),
+      },
+      {
+        id: 'comm-2',
+        order_id: o2.id,
+        shop_id: 'shop-2',
+        shop_name: 'Mode & Élégance Douala',
+        vendor_name: 'Marie-Noëlle Eboa',
+        vendor_email: 'marienoelle.eboa@gmail.com',
+        order_total: 45000,
+        rate: 2,
+        amount: 900, // 2% of 45,000 FCFA
+        status: 'pending',
+        created_date: now(),
+      }
+    ])
+  }
+}
+
+// ===== Helpers =====
+export function clearAllHousings() {
+  localStorage.setItem('mp_housing', '[]')
+}
+
 

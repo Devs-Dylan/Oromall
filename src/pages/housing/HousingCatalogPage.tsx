@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Home, MapPin, Search, Filter, Grid, Map as MapIcon,
   BedDouble, Bath, Maximize2, Shield, CheckCircle2, Sparkles, Star, Calendar, Heart
@@ -10,6 +10,7 @@ import { formatPrice, cn, buildWhatsAppUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { useWishlist } from '@/hooks/useWishlist'
 import LeafletMap, { MapMarkerItem } from '@/components/shared/LeafletMap'
+import { VisitPackagesModal } from '@/components/housing/VisitPackagesModal'
 
 const HOUSING_CATEGORIES: { key: HousingCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'Tous les biens' },
@@ -19,11 +20,12 @@ const HOUSING_CATEGORIES: { key: HousingCategory | 'all'; label: string }[] = [
   { key: 'villa', label: 'Villas & Duplex' },
 ]
 
-const CITIES = ['Toutes', 'Yaoundé', 'Douala', 'Buea', 'Bafoussam', 'Dschang']
+const CITIES = ['Toutes', 'Yaoundé', 'Douala', 'Buea', 'Bafoussam', 'Dschang', 'Ambam']
 
 export default function HousingCatalogPage() {
   const housings = HousingAPI.list()
   const { isHousingFavorite, toggleHousingFavorite } = useWishlist()
+  const navigate = useNavigate()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<HousingCategory | 'all'>('all')
@@ -31,6 +33,7 @@ export default function HousingCatalogPage() {
   const [maxPrice, setMaxPrice] = useState<number>(500000)
   const [furnishedOnly, setFurnishedOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
+  const [selectedHousingForVisit, setSelectedHousingForVisit] = useState<{ id: string; title: string; city: string; image_url: string } | null>(null)
 
   const filteredHousings = useMemo(() => {
     return housings.filter(h => {
@@ -62,19 +65,19 @@ export default function HousingCatalogPage() {
   }, [filteredHousings])
 
   return (
-    <div className="min-h-screen pb-16 space-y-8 max-w-7xl mx-auto px-4 pt-6">
+    <div className="min-h-screen pb-16 space-y-8 w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 pt-6">
 
       {/* Hero Header */}
-      <div className="card-glass p-8 md:p-12 relative overflow-hidden bg-gradient-to-br from-emerald-950/40 via-card to-background border-emerald-500/20">
-        <div className="max-w-2xl space-y-4 relative z-10">
-          <span className="badge-primary bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Home className="w-3.5 h-3.5" /> Immobilier & Logements Étudiants
+      <div className="rounded-2xl p-6 sm:p-10 border border-border bg-card shadow-sm relative overflow-hidden">
+        <div className="max-w-2xl space-y-3 relative z-10">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <Home className="w-3.5 h-3.5" /> Immobilier & Logements Étudiants au Cameroun
           </span>
-          <h1 className="text-3xl md:text-5xl font-display font-extrabold text-foreground leading-tight">
-            Trouvez votre studio ou appartement idéal au Cameroun
+          <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight">
+            Studios, chambres & appartements vérifiés
           </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Studios meublés, chambres d'étudiants, appartements et villas. Géolocalisation directe sur carte et visite rapide.
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            Consultez les annonces de bailleurs certifiés, réservez une visite en ligne et contactez le propriétaire en toute sérénité.
           </p>
         </div>
       </div>
@@ -213,7 +216,7 @@ export default function HousingCatalogPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
               {filteredHousings.map(housing => (
                 <div key={housing.id} className="card-glass overflow-hidden group hover:border-emerald-500/40 transition-all flex flex-col justify-between">
                   <div>
@@ -224,6 +227,11 @@ export default function HousingCatalogPage() {
                         alt={housing.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
+                      {(housing.images && housing.images.length > 0) && (
+                        <span className="absolute bottom-3 left-3 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold">
+                          +{housing.images.length} photo{housing.images.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                       <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-md capitalize">
                           {housing.category}
@@ -278,12 +286,39 @@ export default function HousingCatalogPage() {
                     >
                       Détails & Visite <Calendar className="w-3.5 h-3.5" />
                     </Link>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setSelectedHousingForVisit({
+                          id: housing.id,
+                          title: housing.title,
+                          city: housing.city,
+                          image_url: housing.image_url
+                        })
+                      }}
+                      className="w-full py-2.5 rounded-xl border-2 border-emerald-500/40 hover:border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs text-center transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Calendar className="w-3.5 h-3.5" /> Demander visite
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Visit Packages Modal */}
+      {selectedHousingForVisit && (
+        <VisitPackagesModal
+          open={!!selectedHousingForVisit}
+          onClose={() => setSelectedHousingForVisit(null)}
+          onSelect={(pkg) => {
+            setSelectedHousingForVisit(null)
+            // Navigate to detail page with visit package selection
+            navigate(`/housing/${selectedHousingForVisit.id}?package=${pkg}`)
+          }}
+        />
       )}
     </div>
   )

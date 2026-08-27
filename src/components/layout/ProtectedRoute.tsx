@@ -27,6 +27,7 @@ export default function ProtectedRoute({ children, requireSeller, requireAdmin }
   }
 
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  if (isAdmin()) return <>{children}</>
   if (!user.account_type && location.pathname !== '/role') return <Navigate to="/role" replace />
   if (requireAdmin && !isAdmin()) return <Navigate to="/" replace />
   if (requireSeller && !isSeller()) return <Navigate to="/" replace />

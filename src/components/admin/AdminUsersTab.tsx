@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Users, Shield, Zap, Lock, Unlock, Search, UserCheck, Mail, Calendar } from 'lucide-react'
+import { Users, Shield, Zap, Lock, Unlock, Search, UserCheck, Mail, Calendar, Trash2 } from 'lucide-react'
 import type { User, UserRole } from '@/types'
 import { UserAPI, AuditLogAPI } from '@/lib/store'
 import { formatDate, cn } from '@/lib/utils'
@@ -46,6 +46,22 @@ export function AdminUsersTab({ users, adminName = 'SuperAdmin', onRefresh }: Ad
     })
 
     toastSuccess(`Compte utilisateur ${userItem.name} ${nextBanned ? 'Banni 🚫' : 'Débanni 🟢'}`)
+    onRefresh()
+  }
+
+  const handleDelete = (userItem: User) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le compte de ${userItem.name} (${userItem.email}) ? Cette action est irréversible.`)) return
+    UserAPI.delete(userItem.id)
+
+    AuditLogAPI.create({
+      timestamp: new Date().toISOString(),
+      admin_name: adminName,
+      action: 'Suppression Utilisateur 🗑️',
+      details: `Utilisateur : ${userItem.name} (${userItem.email})`,
+      severity: 'danger'
+    })
+
+    toastSuccess(`Compte de ${userItem.name} supprimé`)
     onRefresh()
   }
 
@@ -127,7 +143,7 @@ export function AdminUsersTab({ users, adminName = 'SuperAdmin', onRefresh }: Ad
                     <div>
                       <h3 className="font-bold text-sm text-foreground flex items-center gap-1">
                         {userItem.name}
-                        {userItem.role === 'admin' && <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" title="Administrateur" />}
+                        {userItem.role === 'admin' && <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
                       </h3>
                       <p className="text-xs text-muted-foreground">{userItem.email}</p>
                     </div>
@@ -179,6 +195,16 @@ export function AdminUsersTab({ users, adminName = 'SuperAdmin', onRefresh }: Ad
                     {userItem.is_banned ? 'Débannir' : 'Bannir'}
                   </Button>
                 </div>
+
+                {/* Action 3: Delete */}
+                <Button
+                  onClick={() => handleDelete(userItem)}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs gap-1 text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Supprimer le compte
+                </Button>
               </div>
             </div>
           ))

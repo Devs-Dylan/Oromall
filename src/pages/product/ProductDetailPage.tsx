@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   MapPin, ShoppingBag, Heart, ArrowLeft,
-  CheckCircle, MessageSquare, Star, User, ShieldCheck, Share2, Tag
+  CheckCircle, MessageSquare, Star, User, ShieldCheck, Share2, Tag, Package
 } from 'lucide-react'
-import { ProductAPI, ShopAPI, ReviewAPI, WishlistAPI, OrderAPI, ChatAPI, NotificationAPI } from '@/lib/store'
+import { ProductAPI, ShopAPI, ReviewAPI, WishlistAPI, OrderAPI, ChatAPI, NotificationAPI, AvailabilityRequestAPI, CommissionAPI } from '@/lib/store'
 import { CONDITION_LABELS } from '@/types'
 import { formatPrice, cn, buildWhatsAppUrl, generatePin } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +13,7 @@ import { Input, Textarea } from '@/components/ui/Input'
 import { useCart } from '@/hooks/useCart'
 import { useAuth } from '@/hooks/useAuth'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
+import { ProductCheckoutModal } from '@/components/product/ProductCheckoutModal'
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,10 +28,12 @@ export default function ProductDetailPage() {
 
   // State for ordering modal
   const [orderModalOpen, setOrderModalOpen] = useState(false)
-  const [customerName, setCustomerName] = useState(user?.name || '')
-  const [customerEmail, setCustomerEmail] = useState(user?.email || '')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [orderNote, setOrderNote] = useState('')
+
+  // State for availability request modal
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false)
+  const [availQuantity, setAvailQuantity] = useState(1)
+  const [availDeadline, setAvailDeadline] = useState('')
+  const [availCustomerPhone, setAvailCustomerPhone] = useState('')
 
   // State for Review modal
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
@@ -62,52 +65,6 @@ export default function ProductDetailPage() {
     forceUpdate(n => n + 1)
   }
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!customerName || !customerEmail || !customerPhone) {
-      toastError('Veuillez remplir vos coordonnées.')
-      return
-    }
-
-    const pin = generatePin()
-    const order = OrderAPI.create({
-      shop_id: product.shop_id,
-      shop_name: product.shop_name,
-      product_id: product.id,
-      product_name: product.name,
-      product_price: product.price,
-      total: product.price,
-      customer_name: customerName,
-      customer_email: customerEmail,
-      customer_phone: customerPhone,
-      status: 'pending_payment',
-      message: orderNote,
-      pin_code: pin,
-    })
-
-    // Create initial chat message for in-app messaging
-    ChatAPI.create({
-      order_id: order.id,
-      sender_role: 'customer',
-      sender_name: customerName,
-      message: `Bonjour ${product.shop_name}, j'ai passé commande pour "${product.name}" (${formatPrice(product.price)}). Merci de me confirmer les modalités de livraison.`,
-    })
-
-    // Send in-app notification to the seller
-    NotificationAPI.create({
-      shop_id: product.shop_id,
-      title: `Nouvelle Commande #${order.id.slice(0, 8)}`,
-      message: `${customerName} (${customerPhone}) a commandé "${product.name}".`,
-      type: 'order',
-      read: false,
-      created_date: new Date().toISOString(),
-    })
-
-    setOrderModalOpen(false)
-    toastSuccess('Commande enregistrée sur la plateforme !', `Chat ouvert avec le vendeur. Code PIN: ${pin}`)
-    navigate(`/orders?chat=${order.id}`)
-  }
-
   const handleContactVendor = () => {
     const pin = generatePin()
     const order = OrderAPI.create({
@@ -117,9 +74,9 @@ export default function ProductDetailPage() {
       product_name: product.name,
       product_price: product.price,
       total: product.price,
-      customer_name: user?.name || customerName || 'Client',
-      customer_email: user?.email || customerEmail || 'client@marcheplus.cm',
-      customer_phone: customerPhone || '680195221',
+      customer_name: user?.name || 'Client OroMall',
+      customer_email: user?.email || '',
+      customer_phone: user?.phone || user?.mtn_number || user?.orange_number || '',
       status: 'pending_payment',
       pin_code: pin,
     })
@@ -127,7 +84,7 @@ export default function ProductDetailPage() {
     ChatAPI.create({
       order_id: order.id,
       sender_role: 'customer',
-      sender_name: user?.name || customerName || 'Client',
+      sender_name: user?.name || 'Client',
       message: `Bonjour ${product.shop_name}, je souhaite des informations concernant l'article "${product.name}" (${formatPrice(product.price)}).`,
     })
 
@@ -137,11 +94,49 @@ export default function ProductDetailPage() {
       message: `${user?.name || 'Un client'} a ouvert une discussion sur le chat interne.`,
       type: 'chat',
       read: false,
-      created_date: new Date().toISOString(),
     })
 
     toastSuccess('Chat plateforme ouvert !', 'Le vendeur recevra une notification système.')
     navigate(`/orders?chat=${order.id}`)
+  }
+
+  const handleAvailabilityRequest = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!availCustomerPhone) {
+      toastError('Veuillez remplir votre numéro de téléphone.')
+      return
+    }
+    if (!availDeadline) {
+      toastError('Veuillez sélectionner une date limite.')
+      return
+    }
+
+    const request = AvailabilityRequestAPI.create({
+      product_id: product.id,
+      product_name: product.name,
+      shop_id: product.shop_id,
+      shop_name: product.shop_name,
+      customer_name: user?.name || 'Client',
+      customer_email: user?.email || '',
+      customer_phone: availCustomerPhone,
+      quantity: availQuantity,
+      deadline_date: availDeadline,
+      status: 'pending',
+    })
+
+    NotificationAPI.create({
+      shop_id: product.shop_id,
+      title: `Nouvelle demande de disponibilité - ${product.name}`,
+      message: `${request.customer_name} demande ${request.quantity}x "${product.name}" pour le ${request.deadline_date}.`,
+      type: 'system',
+      read: false,
+    })
+
+    setAvailabilityModalOpen(false)
+    setAvailQuantity(1)
+    setAvailDeadline('')
+    setAvailCustomerPhone('')
+    toastSuccess('Demande envoyée au vendeur !', 'Vous serez notifié quand il validera la disponibilité.')
   }
 
   const handleAddReview = (e: React.FormEvent) => {
@@ -150,7 +145,7 @@ export default function ProductDetailPage() {
     ReviewAPI.create({
       product_id: product.id,
       shop_id: product.shop_id,
-      user_name: user?.name || customerName || 'Anonyme',
+      user_name: user?.name || 'Client OroMall',
       rating,
       comment: reviewComment,
     })
@@ -168,19 +163,22 @@ export default function ProductDetailPage() {
 
   const defaultColors = useMemo(() => [
     { name: 'Noir Sidéral', hex: '#1e293b', image_url: product?.image_url },
-    { name: 'Argent / Blanc', hex: '#cbd5e1', image_url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600' },
-    { name: 'Bleu Intense', hex: '#2563eb', image_url: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=600' },
-    { name: 'Or Luxe', hex: '#d97706', image_url: 'https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?w=600' },
+    { name: 'Argent / Blanc', hex: '#cbd5e1', image_url: product?.image_url },
+    { name: 'Bleu Intense', hex: '#2563eb', image_url: product?.image_url },
+    { name: 'Or Luxe', hex: '#d97706', image_url: product?.image_url },
   ], [product])
 
   const availableColors = (product?.colors && product.colors.length > 0) ? product.colors : defaultColors
   const [selectedColor, setSelectedColor] = useState(availableColors[0])
   const [activeImage, setActiveImage] = useState(product?.image_url || '')
+  const previousProductId = useRef(product?.id)
 
-  // Update active image if product changes
   useEffect(() => {
-    if (product) setActiveImage(product.image_url)
-  }, [product])
+    if (product && product.id !== previousProductId.current) {
+      previousProductId.current = product.id
+      setActiveImage(product.image_url)
+    }
+  }, [product?.id])
 
   const galleryImages = useMemo(() => {
     const list = [product?.image_url || '']
@@ -192,7 +190,7 @@ export default function ProductDetailPage() {
   }, [product, availableColors])
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-12">
+    <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-8 space-y-12">
       {/* Back Button */}
       <Link to="/" className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-4 h-4" /> Retour à la marketplace
@@ -204,9 +202,10 @@ export default function ProductDetailPage() {
         <div className="space-y-4">
           <div className="aspect-square rounded-3xl overflow-hidden border border-border bg-card shadow-lg relative group">
             <img
-              src={activeImage || product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600'}
+              src={activeImage || product.image_url || ''}
               alt={product.name}
               className="w-full h-full object-cover transition-all duration-300"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
             <button
               onClick={toggleWishlist}
@@ -343,10 +342,10 @@ export default function ProductDetailPage() {
             </div>
 
             <Button
-              onClick={handleContactVendor}
-              className="w-full py-3 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-md"
+              onClick={() => setAvailabilityModalOpen(true)}
+              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-md"
             >
-              <MessageSquare className="w-5 h-5" /> Contacter le Vendeur sur le Chat Interne 💬
+              <Package className="w-5 h-5" /> Disponible ? Vérifier la dispo
             </Button>
           </div>
         </div>
@@ -402,53 +401,14 @@ export default function ProductDetailPage() {
         </div>
       )}
 
-      {/* Direct Order Modal */}
-      <Modal open={orderModalOpen} onClose={() => setOrderModalOpen(false)} title="Commander cet article">
-        <form onSubmit={handlePlaceOrder} className="space-y-4">
-          <div className="bg-muted/40 p-4 rounded-xl flex items-center justify-between text-sm">
-            <div>
-              <p className="font-semibold text-foreground">{product.name}</p>
-              <p className="text-xs text-muted-foreground">{product.shop_name}</p>
-            </div>
-            <p className="font-bold text-primary">{formatPrice(product.price)}</p>
-          </div>
-
-          <Input label="Votre Nom complet" required value={customerName} onChange={e => setCustomerName(e.target.value)} />
-          <Input label="Votre Email" type="email" required value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} />
-          <Input label="Numéro Mobile Money (MTN / Orange)" placeholder="6XX XXX XXX" required value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
-          <Textarea label="Message / Instructions de livraison (optionnel)" rows={3} value={orderNote} onChange={e => setOrderNote(e.target.value)} />
-
-          <div className="pt-4 flex flex-col sm:flex-row items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                addItem({
-                  product_id: product.id,
-                  shop_id: product.shop_id,
-                  shop_name: product.shop_name,
-                  product_name: product.name,
-                  product_price: product.price,
-                  quantity: 1,
-                  image_url: product.image_url,
-                })
-                setOrderModalOpen(false)
-                toastSuccess('Ajouté au panier !', 'Vous pouvez continuer vos achats.')
-              }}
-              className="w-full sm:w-1/2 text-xs py-3"
-            >
-              <ShoppingBag className="w-4 h-4" /> Continuer mes achats 🛍️
-            </Button>
-
-            <Button
-              type="submit"
-              className="w-full sm:w-1/2 text-xs py-3 bg-primary text-white font-bold shadow-lg shadow-primary/20"
-            >
-              <CheckCircle className="w-4 h-4" /> Commander sur la plateforme 🛒
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      {/* Comprehensive Direct Checkout & Reservation Modal */}
+      <ProductCheckoutModal
+        open={orderModalOpen}
+        onClose={() => setOrderModalOpen(false)}
+        product={product}
+        shop={shop}
+        quantity={1}
+      />
 
       {/* Review Modal */}
       <Modal open={reviewModalOpen} onClose={() => setReviewModalOpen(false)} title="Donner votre avis">
@@ -474,6 +434,53 @@ export default function ProductDetailPage() {
           <div className="pt-3 flex gap-3 justify-end">
             <Button type="button" variant="ghost" onClick={() => setReviewModalOpen(false)}>Annuler</Button>
             <Button type="submit">Publier l'avis</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Availability Request Modal */}
+      <Modal open={availabilityModalOpen} onClose={() => setAvailabilityModalOpen(false)} title="Demande de disponibilité">
+        <form onSubmit={handleAvailabilityRequest} className="space-y-4">
+          <div className="bg-muted/40 p-4 rounded-xl flex items-center justify-between text-sm">
+            <div>
+              <p className="font-semibold text-foreground">{product.name}</p>
+              <p className="text-xs text-muted-foreground">{product.shop_name}</p>
+            </div>
+            <p className="font-bold text-primary">{formatPrice(product.price)}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Quantité souhaitée"
+              type="number"
+              min="1"
+              required
+              value={availQuantity}
+              onChange={e => setAvailQuantity(parseInt(e.target.value) || 1)}
+            />
+            <Input
+              label="Date limite souhaitée"
+              type="date"
+              required
+              value={availDeadline}
+              onChange={e => setAvailDeadline(e.target.value)}
+            />
+          </div>
+
+          <Input
+            label="Votre numéro de téléphone"
+            type="tel"
+            placeholder="6XX XXX XXX"
+            required
+            value={availCustomerPhone}
+            onChange={e => setAvailCustomerPhone(e.target.value)}
+          />
+
+          <div className="pt-3 flex gap-3 justify-end">
+            <Button type="button" variant="ghost" onClick={() => setAvailabilityModalOpen(false)}>Annuler</Button>
+            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500">
+              <CheckCircle className="w-4 h-4" /> Envoyer la demande
+            </Button>
           </div>
         </form>
       </Modal>

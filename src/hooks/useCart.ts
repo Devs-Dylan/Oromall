@@ -10,30 +10,32 @@ export function useCart() {
   const items = CartAPI.list()
 
   const addItem = useCallback((item: Omit<CartItem, 'id'>) => {
-    const existing = items.find(i => i.product_id === item.product_id)
+    const current = CartAPI.list()
+    const existing = current.find(i => i.product_id === item.product_id)
     if (existing) {
       CartAPI.update(existing.id, { quantity: existing.quantity + 1 })
     } else {
       CartAPI.create({ ...item, id: generateId() } as CartItem)
     }
     refresh()
-  }, [items])
+  }, [refresh])
 
   const removeItem = useCallback((id: string) => {
     CartAPI.delete(id)
     refresh()
-  }, [])
+  }, [refresh])
 
   const updateQuantity = useCallback((id: string, quantity: number) => {
     if (quantity <= 0) CartAPI.delete(id)
     else CartAPI.update(id, { quantity })
     refresh()
-  }, [])
+  }, [refresh])
 
   const clearCart = useCallback(() => {
-    items.forEach(i => CartAPI.delete(i.id))
+    const current = CartAPI.list()
+    current.forEach(i => CartAPI.delete(i.id))
     refresh()
-  }, [items])
+  }, [refresh])
 
   const applyPromo = useCallback((code: string): PromoCode | null => {
     const promo = PromoAPI.filter(p => p.code.toUpperCase() === code.toUpperCase() && p.active)[0]
@@ -44,15 +46,15 @@ export function useCart() {
     return promo
   }, [])
 
-  const total = items.reduce((sum, i) => sum + i.product_price * i.quantity, 0)
-  const count = items.reduce((sum, i) => sum + i.quantity, 0)
+  const currentItems = CartAPI.list()
+  const total = currentItems.reduce((sum, i) => sum + i.product_price * i.quantity, 0)
+  const count = currentItems.reduce((sum, i) => sum + i.quantity, 0)
 
-  // Group by shop
-  const byShop = items.reduce((acc, item) => {
-    if (!acc[item.shop_id]) acc[item.shop_id] = { shop_name: item.shop_name, items: [] }
+  const byShop = currentItems.reduce((acc, item) => {
+    if (!acc[item.shop_id]) acc[item.shop_id] = { shop_name: item.shop_name, items: [] as CartItem[] }
     acc[item.shop_id].items.push(item)
     return acc
   }, {} as Record<string, { shop_name: string; items: CartItem[] }>)
 
-  return { items, total, count, byShop, addItem, removeItem, updateQuantity, clearCart, applyPromo }
+  return { items: currentItems, total, count, byShop, addItem, removeItem, updateQuantity, clearCart, applyPromo }
 }

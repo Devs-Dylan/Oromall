@@ -125,7 +125,7 @@ export function SellerReviewsTab({ reviews, onRefresh }: SellerReviewsTabProps) 
 
       {/* Reply Modal */}
       <Modal
-        isOpen={!!selectedReview}
+        open={!!selectedReview}
         onClose={() => setSelectedReview(null)}
         title="Répondre publiquement à l'avis client"
       >

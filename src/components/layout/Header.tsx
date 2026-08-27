@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Store, User, LogOut, Settings, LayoutDashboard,
-  Menu, X, Bell, Moon, Sun, ShoppingCart, Heart, Users,
-  Shield, BookOpen, Handshake, HelpCircle, Gift, Download, Home, Map
+  Menu, X, Moon, Sun, ShoppingCart, Heart, Users,
+  Shield, Handshake, HelpCircle, Download, Home, Map, ChevronDown
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCart } from '@/hooks/useCart'
 import { useWishlist } from '@/hooks/useWishlist'
 import { cn } from '@/lib/utils'
+import { SmartSearchBar } from '@/components/shared/SmartSearchBar'
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth()
@@ -20,8 +21,7 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [dark, setDark] = useState(() => localStorage.getItem('mp_dark') === '1')
   const [scrolled, setScrolled] = useState(false)
-  const [pwaPrompt, setPwaPrompt] = useState<Event | null>(null)
-  const [announcement, setAnnouncement] = useState(() => localStorage.getItem('mp_announcement') || '🔥 Offres spéciales rentrée académique : Jusqu\'à -20% sur la catégorie Électronique !')
+  const [announcement, setAnnouncement] = useState(() => localStorage.getItem('mp_announcement') || 'OroMall : Achetez et louez en toute sérénité au Cameroun avec paiement Mobile Money sécurisé.')
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -29,203 +29,295 @@ export default function Header() {
   }, [dark])
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20)
+    const handler = () => setScrolled(window.scrollY > 15)
     window.addEventListener('scroll', handler)
     return () => window.removeEventListener('scroll', handler)
   }, [])
 
+  // Close menus on route change
   useEffect(() => {
-    const handler = (e: Event) => { e.preventDefault(); setPwaPrompt(e) }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
+    setMenuOpen(false)
+    setUserMenuOpen(false)
+  }, [location.pathname])
 
   const navLinks = [
     { to: '/', label: 'Marketplace', icon: Store },
     { to: '/housing', label: 'Logements', icon: Home },
-    { to: '/map', label: 'Carte', icon: Map },
-    { to: '/p2p', label: 'P2P', icon: Handshake },
-    { to: '/orders', label: 'Commandes', icon: ShoppingBag },
-    { to: '/faq', label: 'Aide', icon: HelpCircle },
+    { to: '/map', label: 'Carte Interactive', icon: Map },
+    { to: '/p2p', label: 'P2P & Services', icon: Handshake },
+    { to: '/orders', label: 'Mes Commandes', icon: ShoppingBag },
   ]
 
   return (
     <>
-      {/* Global Announcement Banner */}
+      {/* Top Subtle Announcement */}
       {announcement && (
-        <div className="bg-gradient-to-r from-amber-600 via-primary to-emerald-600 text-white px-4 py-1.5 text-xs font-semibold text-center flex items-center justify-center gap-2 shadow-sm">
+        <div className="bg-foreground text-background px-4 py-2 text-[12px] font-medium text-center flex items-center justify-center gap-3">
           <span>{announcement}</span>
-          <button onClick={() => setAnnouncement('')} className="p-0.5 hover:opacity-80"><X className="w-3.5 h-3.5" /></button>
-        </div>
-      )}
-
-      {/* PWA Banner */}
-      {pwaPrompt && (
-        <div className="bg-gradient-to-r from-primary to-accent text-white px-4 py-2 text-sm flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Installez MarchéPlus sur votre téléphone pour un accès rapide !
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                const e = pwaPrompt as BeforeInstallPromptEvent
-                e.prompt?.()
-                setPwaPrompt(null)
-              }}
-              className="px-3 py-1 bg-white text-primary rounded-lg font-semibold text-xs hover:bg-white/90"
-            >Installer</button>
-            <button onClick={() => setPwaPrompt(null)} className="p-1"><X className="w-4 h-4" /></button>
-          </div>
+          <button
+            onClick={() => setAnnouncement('')}
+            className="text-background/60 hover:text-background transition-colors p-0.5"
+            title="Masquer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
       <header className={cn(
-        'sticky top-0 z-40 border-b transition-all duration-300',
+        'sticky top-0 z-40 transition-all duration-200 border-b',
         scrolled
-          ? 'bg-card/95 backdrop-blur-md shadow-sm border-border'
-          : 'bg-card border-transparent'
+          ? 'bg-card/90 backdrop-blur-md border-border shadow-sm'
+          : 'bg-card border-border/60'
       )}>
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 font-display font-bold text-xl">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center text-white text-sm font-black">M+</div>
-            <span className="gradient-text hidden sm:block">MarchéPlus</span>
-          </Link>
-
-          {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map(l => (
-              <Link key={l.to} to={l.to} className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                location.pathname === l.to
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              )}>
-                <l.icon className="w-4 h-4" />{l.label}
-              </Link>
-            ))}
-{user?.account_type === 'seller' ? (
-            <Link to="/seller" className={cn(
-              'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              location.pathname.startsWith('/seller')
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}>
-              <LayoutDashboard className="w-4 h-4" />Dashboard
+          <div className="flex items-center gap-8">
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <div className="w-9 h-9 rounded-xl bg-primary text-black font-black text-sm shadow-md flex items-center justify-center transition-transform group-hover:scale-105 border border-amber-400/40">
+                OM
+              </div>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-base tracking-tight text-foreground leading-none flex items-center gap-1">
+                  OroMall <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-primary/20 text-primary uppercase">Gold</span>
+                </span>
+                <span className="text-[10px] font-semibold text-muted-foreground tracking-wider uppercase mt-0.5">
+                  Cameroun E-Commerce & Logements
+                </span>
+              </div>
             </Link>
-          ) : null}
-            {isAdmin() && (
-              <Link to="/admin" className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                location.pathname.startsWith('/admin')
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              )}>
-                <Shield className="w-4 h-4" />Admin
-              </Link>
-            )}
-          </nav>
 
-          {/* Right actions */}
+            {/* Desktop Navigation Links */}
+            <nav className="hidden md:flex items-center gap-1">
+              {navLinks.map(l => {
+                const isActive = location.pathname === l.to
+                return (
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                      isActive
+                        ? 'bg-primary/10 text-primary font-bold'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    )}
+                  >
+                    <l.icon className="w-3.5 h-3.5" />
+                    {l.label}
+                  </Link>
+                )
+              })}
+
+              {user?.account_type === 'seller' && (
+                <Link
+                  to="/seller"
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                    location.pathname.startsWith('/seller')
+                      ? 'bg-primary/10 text-primary font-bold'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  Espace Vendeur
+                </Link>
+              )}
+
+              {isAdmin() && (
+                <Link
+                  to="/admin"
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5',
+                    location.pathname.startsWith('/admin')
+                      ? 'bg-primary/10 text-primary font-bold'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
+                >
+                  <Shield className="w-3.5 h-3.5 text-primary" />
+                  Console Admin
+                </Link>
+              )}
+            </nav>
+          </div>
+
+          {/* Smart Omnibar (Desktop) */}
+          <div className="hidden lg:flex items-center flex-1 max-w-sm xl:max-w-md mx-4">
+            <SmartSearchBar variant="header" placeholder="Recherche intelligente (ex: iPhone, Bastos, ESTLC)..." />
+          </div>
+
+          {/* Right Action Icons */}
           <div className="flex items-center gap-2">
-            <button onClick={() => setDark(d => !d)} className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-              {dark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {/* Wishlist */}
+            <Link
+              to="/wishlist"
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative"
+              title="Mes Favoris"
+            >
+              <Heart className="w-4 h-4" />
+              {wishCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                  {wishCount}
+                </span>
+              )}
+            </Link>
+
+            {/* Cart */}
+            <Link
+              to="/cart"
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative"
+              title="Mon Panier"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              {count > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                  {count}
+                </span>
+              )}
+            </Link>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={() => setDark(!dark)}
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title={dark ? 'Passer en mode clair' : 'Passer en mode sombre'}
+            >
+              {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            <Link to="/wishlist" className="relative p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground" title="Mes Favoris">
-              <Heart className="w-5 h-5" />
-              {wishCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                  {wishCount > 9 ? '9+' : wishCount}
-                </span>
-              )}
-            </Link>
-
-            <Link to="/cart" className="relative p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground" title="Mon Panier">
-              <ShoppingCart className="w-5 h-5" />
-              {count > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center font-bold">
-                  {count > 9 ? '9+' : count}
-                </span>
-              )}
-            </Link>
-
+            {/* User Account Menu / Auth */}
             {user ? (
               <div className="relative">
                 <button
-                  onClick={() => setUserMenuOpen(o => !o)}
-                  className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-muted transition-colors"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border border-border hover:bg-muted transition-colors text-xs font-semibold text-foreground"
                 >
-                  <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="hidden sm:block text-sm font-medium text-foreground max-w-[100px] truncate">{user.name}</span>
+                  <span className="hidden sm:inline-block max-w-[90px] truncate">{user.name}</span>
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
                 </button>
+
                 {userMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setUserMenuOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-lg z-40 animate-scale-in overflow-hidden">
-                      <div className="p-3 border-b border-border">
-                        <p className="font-semibold text-foreground text-sm">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">{user.email}</p>
-                      </div>
-                      <div className="p-1">
-                        {(user.account_type === 'seller') && (
-                          <button onClick={() => { navigate('/seller'); setUserMenuOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-lg transition-colors">
-                            <LayoutDashboard className="w-4 h-4" />Mon dashboard
-                          </button>
-                        )}
-                        {isAdmin() && (
-                          <>
-                            <button onClick={() => { navigate('/admin'); setUserMenuOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-lg transition-colors">
-                              <Shield className="w-4 h-4" />Administration
-                            </button>
-                            <button onClick={() => { navigate('/project'); setUserMenuOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted rounded-lg transition-colors">
-                              <BookOpen className="w-4 h-4" />Explorateur projet
-                            </button>
-                          </>
-                        )}
-                        <button onClick={() => { logout(); setUserMenuOpen(false); navigate('/login') }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
-                          <LogOut className="w-4 h-4" />Se déconnecter
-                        </button>
-                      </div>
+                  <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-card border border-border shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
+                    <div className="px-4 py-2 border-b border-border/60">
+                      <p className="font-bold text-foreground truncate">{user.name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
                     </div>
-                  </>
+
+                    <div className="py-1">
+                      <Link
+                        to="/orders"
+                        className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5 text-primary" /> Mes Commandes & Visites
+                      </Link>
+
+                      {user.account_type === 'seller' ? (
+                        <Link
+                          to="/seller"
+                          className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors"
+                        >
+                          <LayoutDashboard className="w-3.5 h-3.5 text-primary" /> Dashboard Vendeur
+                        </Link>
+                      ) : (
+                        <Link
+                          to="/seller/onboarding"
+                          className="flex items-center gap-2 px-4 py-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold transition-colors"
+                        >
+                          <Store className="w-3.5 h-3.5" /> Devenir Vendeur / Bailleur
+                        </Link>
+                      )}
+
+                      {isAdmin() && (
+                        <Link
+                          to="/admin"
+                          className="flex items-center gap-2 px-4 py-2 text-primary hover:bg-primary/10 font-bold transition-colors"
+                        >
+                          <Shield className="w-3.5 h-3.5" /> Console Super-Admin
+                        </Link>
+                      )}
+                    </div>
+
+                    <div className="border-t border-border/60 pt-1">
+                      <button
+                        onClick={() => { logout(); navigate('/') }}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-red-500 hover:bg-red-500/10 font-medium transition-colors text-left"
+                      >
+                        <LogOut className="w-3.5 h-3.5" /> Déconnexion
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
-              <Link to="/login" className="btn-primary text-sm py-2 px-4">
-                <User className="w-4 h-4" />Connexion
-              </Link>
+              <div className="flex items-center gap-1.5">
+                <Link
+                  to="/login"
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                >
+                  Connexion
+                </Link>
+                <Link
+                  to="/register"
+                  className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-all shadow-sm"
+                >
+                  S'inscrire
+                </Link>
+              </div>
             )}
 
-            {/* Mobile menu toggle */}
-            <button onClick={() => setMenuOpen(o => !o)} className="lg:hidden p-2 rounded-lg hover:bg-muted text-muted-foreground">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="md:hidden p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors ml-1"
+            >
               {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile Navigation Drawer */}
         {menuOpen && (
-          <div className="lg:hidden border-t border-border bg-card px-4 py-3 flex flex-col gap-1">
+          <div className="md:hidden border-t border-border bg-card px-4 py-4 space-y-3 animate-in slide-in-from-top-2 duration-150">
+            {/* Mobile Smart Search */}
+            <div className="pb-1">
+              <SmartSearchBar variant="compact" onSelectResult={() => setMenuOpen(false)} />
+            </div>
+
             {navLinks.map(l => (
-              <Link key={l.to} to={l.to} onClick={() => setMenuOpen(false)} className={cn(
-                'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors',
-                location.pathname === l.to ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-              )}>
-                <l.icon className="w-4 h-4" />{l.label}
+              <Link
+                key={l.to}
+                to={l.to}
+                className={cn(
+                  'flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors',
+                  location.pathname === l.to
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <l.icon className="w-4 h-4" />
+                {l.label}
               </Link>
             ))}
-            {(user?.account_type === 'seller') && (
-              <Link to="/seller" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-foreground hover:bg-muted">
-                <LayoutDashboard className="w-4 h-4" />Dashboard vendeur
+
+            {user?.account_type === 'seller' && (
+              <Link
+                to="/seller"
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard Vendeur
               </Link>
             )}
+
             {isAdmin() && (
-              <Link to="/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-foreground hover:bg-muted">
-                <Shield className="w-4 h-4" />Administration
+              <Link
+                to="/admin"
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-primary bg-primary/10"
+              >
+                <Shield className="w-4 h-4" />
+                Console Super-Admin
               </Link>
             )}
           </div>
@@ -233,11 +325,4 @@ export default function Header() {
       </header>
     </>
   )
-}
-
-// Type declaration for PWA
-declare global {
-  interface BeforeInstallPromptEvent extends Event {
-    prompt?: () => Promise<void>
-  }
 }

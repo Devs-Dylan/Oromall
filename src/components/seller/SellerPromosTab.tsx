@@ -126,7 +126,7 @@ export function SellerPromosTab({ promos, userEmail, onRefresh }: SellerPromosTa
       </div>
 
       {/* Add Promo Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Créer un coupon de réduction boutique">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Créer un coupon de réduction boutique">
         <form onSubmit={handleCreatePromo} className="space-y-4">
           <Input
             label="Code Promo (ex: BIENVENUE10)"
@@ -137,10 +137,10 @@ export function SellerPromosTab({ promos, userEmail, onRefresh }: SellerPromosTa
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Type de réduction" value={pType} onChange={(e) => setPType(e.target.value as any)}>
-              <option value="percent">Pourcentage (%)</option>
-              <option value="fixed">Montant fixe (FCFA)</option>
-            </Select>
+            <Select label="Type de réduction" value={pType} onChange={(e) => setPType(e.target.value as any)} options={[
+              { value: 'percent', label: 'Pourcentage (%)' },
+              { value: 'fixed', label: 'Montant fixe (FCFA)' }
+            ]} />
 
             <Input
               label={pType === 'percent' ? 'Valeur (%)' : 'Valeur (FCFA)'}

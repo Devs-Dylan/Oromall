@@ -16,8 +16,8 @@ export function CardContent({ className, children, ...props }: React.HTMLAttribu
   return <div className={cn('', className)} {...props}>{children}</div>
 }
 
-export function StatCard({ icon, label, value, trend, color = 'orange' }: {
-  icon: React.ReactNode; label: string; value: string | number; trend?: string; color?: 'orange' | 'green' | 'blue' | 'purple'
+export function StatCard({ icon, label, value, subtitle, trend, color = 'orange' }: {
+  icon: React.ReactNode; label: string; value: string | number; subtitle?: string; trend?: string; color?: 'orange' | 'green' | 'blue' | 'purple'
 }) {
   const colors = {
     orange: 'from-orange-500 to-amber-400',
@@ -32,6 +32,7 @@ export function StatCard({ icon, label, value, trend, color = 'orange' }: {
       </div>
       <p className="text-sm text-muted-foreground font-medium">{label}</p>
       <p className="text-2xl font-display font-bold text-foreground">{value}</p>
+      {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       {trend && <p className="text-xs text-emerald-600 font-medium">{trend}</p>}
     </div>
   )
