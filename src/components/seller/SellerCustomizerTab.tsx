@@ -10,6 +10,7 @@ import { Input, Textarea } from '@/components/ui/Input'
 import { ImageUploadField } from '@/components/ui/ImageUploadField'
 import { LocationPicker } from '@/components/shared/LocationPicker'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
+import { getSmartGeolocation } from '@/lib/geolocation'
 
 interface SellerCustomizerTabProps {
   shop?: Shop
@@ -49,23 +50,16 @@ export function SellerCustomizerTab({ shop, onRefresh }: SellerCustomizerTabProp
   const [sLatitude, setSLatitude] = useState(shop?.latitude?.toString() || '')
   const [sLongitude, setSLongitude] = useState(shop?.longitude?.toString() || '')
 
-  const handleGeolocate = () => {
-    if (!navigator.geolocation) {
-      toastError('Géolocalisation non supportée par votre navigateur.')
-      return
+  const handleGeolocate = async () => {
+    toastSuccess('Détection de position...', 'Tentative de localisation GPS et réseau...')
+    try {
+      const res = await getSmartGeolocation(shop?.city)
+      setSLatitude(res.latitude.toFixed(6))
+      setSLongitude(res.longitude.toFixed(6))
+      toastSuccess('Position détectée ! 📍', res.message)
+    } catch (err: any) {
+      toastError('Erreur de géolocalisation', 'Impossible de récupérer la position automatique.')
     }
-    toastSuccess('Détection de position...', 'Veuillez autoriser l\'accès GPS.')
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setSLatitude(position.coords.latitude.toString())
-        setSLongitude(position.coords.longitude.toString())
-        toastSuccess('Position GPS enregistrée !', `Lat: ${position.coords.latitude.toFixed(5)}, Lng: ${position.coords.longitude.toFixed(5)}`)
-      },
-      (error) => {
-        toastError('Erreur de géolocalisation', error.message)
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    )
   }
 
   const handleSaveCustomizer = (e: React.FormEvent) => {

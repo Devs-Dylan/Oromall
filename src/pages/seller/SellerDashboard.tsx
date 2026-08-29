@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ShoppingBag, Settings, Home,
-  DollarSign, Calendar, Tag, Star, MessageSquare, FileSpreadsheet, Store, CheckCircle, CreditCard
+  DollarSign, Calendar, Tag, Star, MessageSquare, FileSpreadsheet, Store, CheckCircle, CreditCard, Clock
 } from 'lucide-react'
-import { ProductAPI, ShopAPI, OrderAPI, HousingAPI, VisitBookingAPI, PromoAPI, ReviewAPI, ChatAPI, AvailabilityRequestAPI, SubscriptionAPI, CommissionAPI } from '@/lib/store'
+import { ProductAPI, ShopAPI, OrderAPI, HousingAPI, VisitBookingAPI, PromoAPI, ReviewAPI, ChatAPI, AvailabilityRequestAPI, SubscriptionAPI, CommissionAPI, ActivationAPI } from '@/lib/store'
 import { formatPrice, formatDate, cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -77,9 +77,38 @@ export default function SellerDashboard() {
     if (!shop) return []
     return CommissionAPI.filter(c => c.shop_id === shop.id)
   }, [shop])
-  const totalCommission = useMemo(() => commissions.reduce((sum, c) => sum + c.amount, 0), [commissions])
-  const paidCommission = useMemo(() => commissions.filter(c => c.status === 'paid').reduce((sum, c) => sum + c.amount, 0), [commissions])
-  const pendingCommission = useMemo(() => commissions.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.amount, 0), [commissions])
+  const userActivation = useMemo(() => {
+    if (!user) return null
+    return ActivationAPI.filter(a => a.user_email === user.email || (a.user_id && a.user_id === user.id))[0] || null
+  }, [user])
+
+  if (!shop && user?.role !== 'admin') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-6">
+        <div className="card-glass p-8 md:p-10 space-y-6 shadow-2xl border-amber-500/30">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto">
+            {userActivation?.status === 'pending' ? <Clock className="w-8 h-8 animate-pulse" /> : <Store className="w-8 h-8" />}
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-foreground">
+              {userActivation?.status === 'pending' ? "Demande d'adhésion en attente de validation" : "Espace Vendeur & Bailleur"}
+            </h1>
+            <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+              {userActivation?.status === 'pending'
+                ? `Votre dossier pour "${userActivation.shop_name}" est en cours d'examen par les administrateurs OroMall. Votre console sera débloquée dès validation.`
+                : "Vous n'avez pas encore de boutique ou d'activité de bailleur enregistrée. Veuillez soumettre votre formulaire de candidature."
+              }
+            </p>
+          </div>
+          <div className="pt-2 flex justify-center gap-3">
+            <Link to="/seller/onboarding" className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow transition-all">
+              {userActivation?.status === 'pending' ? "Suivre mon dossier d'adhésion →" : "Remplir le formulaire d'adhésion →"}
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-8 space-y-8">

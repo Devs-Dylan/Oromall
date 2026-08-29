@@ -263,15 +263,24 @@ export interface CartItem {
 
 export interface SellerActivation {
   id: string
+  user_id?: string
   user_name: string
   user_email: string
   shop_name: string
   shop_id?: string
   shop_type: ShopType
+  activity_type?: 'seller' | 'bailleur' | 'both'
+  category?: string
+  city?: string
+  whatsapp_number?: string
+  mtn_number?: string
+  orange_number?: string
+  description?: string
   payment_method: PaymentMethod
   amount: number
   status: ActivationStatus
   whatsapp_message?: string
+  notes?: string
   created_date: string
 }
 

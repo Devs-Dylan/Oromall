@@ -17,6 +17,7 @@ const WishlistPage = lazy(() => import('@/pages/wishlist/WishlistPage'))
 const P2PPage = lazy(() => import('@/pages/p2p/P2PPage'))
 const ReferralPage = lazy(() => import('@/pages/referral/ReferralPage'))
 const FaqPage = lazy(() => import('@/pages/faq/FaqPage'))
+const TermsPage = lazy(() => import('@/pages/legal/TermsPage'))
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
 const AdminLoginPage = lazy(() => import('@/pages/auth/AdminLoginPage'))
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/p2p" element={<P2PPage />} />
           <Route path="/referral" element={<ReferralPage />} />
           <Route path="/faq" element={<FaqPage />} />
+          <Route path="/terms" element={<TermsPage />} />
 
           {/* Auth routes */}
           <Route path="/login" element={<LoginPage />} />

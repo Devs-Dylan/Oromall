@@ -24,6 +24,7 @@ export default function Footer() {
           <Link to="/housing" className="hover:text-amber-400 transition-colors">Logements</Link>
           <Link to="/map" className="hover:text-amber-400 transition-colors">Carte</Link>
           <Link to="/seller/onboarding" className="text-amber-400 hover:underline">Vendre</Link>
+          <Link to="/terms" className="hover:text-amber-400 transition-colors">Conditions (CGU)</Link>
           <Link to="/faq" className="hover:text-amber-400 transition-colors">Aide</Link>
         </div>
 

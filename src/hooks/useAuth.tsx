@@ -7,7 +7,18 @@ interface AuthContextType {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   loginAsAdmin: (pin: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    account_type?: AccountType,
+    extra?: { phone?: string; mtn_number?: string; orange_number?: string }
+  ) => Promise<void>
+  loginWithProvider: (
+    provider: 'google' | 'apple' | 'facebook',
+    account_type?: AccountType,
+    mockProfile?: { name?: string; email?: string; avatar_url?: string }
+  ) => Promise<User>
   logout: () => void
   updateUser: (data: Partial<User>) => void
   setRole: (role: AccountType) => void
@@ -73,16 +84,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
+  const register = useCallback(async (
+    name: string,
+    email: string,
+    password: string,
+    account_type: AccountType = 'client',
+    extra?: { phone?: string; mtn_number?: string; orange_number?: string }
+  ) => {
     setIsLoading(true)
     await new Promise(r => setTimeout(r, 800))
     const newUser: User = {
-      id: generateId(), name, email, password,
+      id: generateId(),
+      name,
+      email,
+      password,
+      account_type,
+      phone: extra?.phone || extra?.mtn_number || extra?.orange_number,
+      mtn_number: extra?.mtn_number,
+      orange_number: extra?.orange_number,
       role: 'user',
       created_date: new Date().toISOString(),
     }
     saveUser(newUser)
     setIsLoading(false)
+  }, [])
+
+  const loginWithProvider = useCallback(async (
+    provider: 'google' | 'apple' | 'facebook',
+    account_type: AccountType = 'client',
+    mockProfile?: { name?: string; email?: string; avatar_url?: string }
+  ) => {
+    setIsLoading(true)
+    await new Promise(r => setTimeout(r, 600))
+    const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
+
+    const providerName = provider === 'google' ? 'Google' : provider === 'apple' ? 'Apple' : 'Facebook'
+    const targetEmail = mockProfile?.email || `user.${provider}@oromall.cm`
+    const targetName = mockProfile?.name || `Utilisateur ${providerName}`
+
+    let found = users.find(u => u.email.toLowerCase() === targetEmail.toLowerCase())
+    if (!found) {
+      found = {
+        id: generateId(),
+        name: targetName,
+        email: targetEmail,
+        password: '',
+        account_type,
+        avatar_url: mockProfile?.avatar_url || (provider === 'google' ? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100' : undefined),
+        role: 'user',
+        created_date: new Date().toISOString(),
+      }
+    }
+    saveUser(found)
+    setIsLoading(false)
+    return found
   }, [])
 
   const logout = useCallback(() => {
@@ -104,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isSeller = useCallback(() => user?.account_type === 'seller' || user?.role === 'admin', [user])
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginAsAdmin, register, logout, updateUser, setRole, isAdmin, isSeller }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginAsAdmin, register, loginWithProvider, logout, updateUser, setRole, isAdmin, isSeller }}>
       {children}
     </AuthContext.Provider>
   )

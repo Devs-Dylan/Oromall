@@ -241,7 +241,7 @@ export default function HousingCatalogPage() {
                           )}
                         </div>
                         <button
-                          onClick={() => toggleHousingFavorite(housing.id)}
+                          onClick={() => toggleHousingFavorite(housing)}
                           className={cn(
                             "absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-transform shadow-md",
                             isHousingFavorite(housing.id) ? "bg-red-500 text-white" : "bg-black/60 text-white hover:text-red-400"

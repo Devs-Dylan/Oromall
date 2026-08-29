@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
+import { getSmartGeolocation } from '@/lib/geolocation'
 
 // Formule de Haversine pour calcul géodésique précis
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -170,29 +171,22 @@ export default function InteractiveMapPage() {
     toastSuccess('Point de repère placé sur la carte ! 🎯 Distances recalculées.')
   }
 
-  // Device GPS
-  const handleUseCurrentGPS = () => {
-    if (!navigator.geolocation) {
-      toastError('La géolocalisation n\'est pas supportée par votre navigateur.')
-      return
+  // Device GPS & Smart Geolocation
+  const handleUseCurrentGPS = async () => {
+    try {
+      const res = await getSmartGeolocation(selectedCity === 'Toutes' ? 'Yaoundé' : selectedCity)
+      const lat = Number(res.latitude.toFixed(5))
+      const lng = Number(res.longitude.toFixed(5))
+      setReferencePoint({
+        latitude: lat,
+        longitude: lng,
+        label: `Ma position (${res.method === 'gps_high' ? 'GPS Exact' : 'Réseau'}) 📍`,
+        source: 'gps'
+      })
+      toastSuccess('Position détectée ! 📍', res.message)
+    } catch (err: any) {
+      toastError('Impossible d\'obtenir votre position.')
     }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = Number(pos.coords.latitude.toFixed(5))
-        const lng = Number(pos.coords.longitude.toFixed(5))
-        setReferencePoint({
-          latitude: lat,
-          longitude: lng,
-          label: 'Ma position GPS actuelle 📍',
-          source: 'gps'
-        })
-        toastSuccess('Position GPS détectée ! Distances mises à jour.')
-      },
-      () => {
-        toastError('Impossible d\'obtenir votre position GPS.')
-      }
-    )
   }
 
   // Calculate distances and markers

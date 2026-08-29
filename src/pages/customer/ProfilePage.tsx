@@ -3,12 +3,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   User, ShoppingBag, Heart, Award, ShieldCheck, Store, LogOut,
   Clock, Package, MapPin, Phone, Mail, CheckCircle, CreditCard,
-  Settings, Key, AlertCircle, ChevronRight, Edit3, ArrowRight, Share2, Copy
+  Settings, Key, AlertCircle, ChevronRight, Edit3, ArrowRight, Share2, Copy, Building2
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWishlist } from '@/hooks/useWishlist'
 import { useCart } from '@/hooks/useCart'
-import { OrderAPI, AvailabilityRequestAPI, UserAPI } from '@/lib/store'
+import { OrderAPI, AvailabilityRequestAPI, UserAPI, ActivationAPI } from '@/lib/store'
 import { formatPrice, formatDate, cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -24,7 +24,11 @@ export default function ProfilePage() {
   const initialTab = (searchParams.get('tab') as ProfileTab) || 'overview'
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab)
 
-  const { items: wishlistItems, totalCount: wishCount } = useWishlist()
+  const { favoriteProducts, favoriteHousings, totalCount: wishCount } = useWishlist()
+  const wishlistItems = useMemo(() => [
+    ...favoriteProducts.map(p => ({ id: p.id, title: p.name, price: p.price, type: 'product' as const })),
+    ...favoriteHousings.map(h => ({ id: h.id, title: h.title, price: h.price, type: 'housing' as const }))
+  ], [favoriteProducts, favoriteHousings])
   const { count: cartCount } = useCart()
 
   // User Profile Form State
@@ -42,6 +46,11 @@ export default function ProfilePage() {
   const availabilityRequests = useMemo(() => {
     if (!user) return []
     return AvailabilityRequestAPI.filter(r => r.customer_email === user.email)
+  }, [user])
+
+  const userActivation = useMemo(() => {
+    if (!user) return null
+    return ActivationAPI.filter(a => a.user_email === user.email || (a.user_id && a.user_id === user.id))[0] || null
   }, [user])
 
   if (!user) {
@@ -194,6 +203,40 @@ export default function ProfilePage() {
               <p className="text-[11px] text-muted-foreground">Transactions vérifiées par admin</p>
             </div>
           </div>
+
+          {/* Devenir Vendeur / Bailleur Card (si pas encore vendeur) */}
+          {user.account_type !== 'seller' && (
+            <div className="card-glass p-6 rounded-2xl border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-card to-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold shrink-0">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-foreground text-base">Devenir Vendeur ou Bailleur sur OroMall</h3>
+                    {userActivation?.status === 'pending' && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">
+                        Dossier en cours d'examen ⏳
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground max-w-xl">
+                    {userActivation?.status === 'pending'
+                      ? `Votre candidature pour "${userActivation.shop_name}" a été soumise avec succès. Nos administrateurs vérifient actuellement vos informations.`
+                      : 'Ouvrez votre boutique en ligne ou publiez vos logements, studios et chambres d\'étudiants. Remplissez le formulaire de candidature officiel.'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                to="/seller/onboarding"
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow flex items-center gap-2 shrink-0 transition-all"
+              >
+                {userActivation?.status === 'pending' ? 'Suivre mon dossier →' : 'Remplir le formulaire d\'adhésion →'}
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

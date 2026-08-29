@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { toastSuccess, toastError, toastInfo } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
 import LeafletMap, { MapMarkerItem } from './LeafletMap'
+import { getSmartGeolocation } from '@/lib/geolocation'
 
 export interface LocationCoordinates {
   latitude: number
@@ -54,37 +55,23 @@ export function LocationPicker({
     setLng(longitude ? String(longitude) : '')
   }, [latitude, longitude])
 
-  const handleGeolocate = () => {
-    if (!navigator.geolocation) {
-      toastError('La géolocalisation n\'est pas supportée par votre navigateur.')
-      return
-    }
-
+  const handleGeolocate = async () => {
     setIsLocating(true)
-    toastInfo('Recherche de votre position GPS...')
+    toastInfo('Recherche de votre position GPS / Réseau...')
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setIsLocating(false)
-        const newLat = position.coords.latitude.toFixed(6)
-        const newLng = position.coords.longitude.toFixed(6)
-        setLat(newLat)
-        setLng(newLng)
-        onChange({ latitude: newLat, longitude: newLng, city, neighborhood })
-        toastSuccess('Position GPS détectée avec succès ! 📍')
-      },
-      (error) => {
-        setIsLocating(false)
-        let msg = 'Impossible d\'accéder à votre position GPS.'
-        if (error.code === error.PERMISSION_DENIED) {
-          msg = 'Autorisation GPS refusée. Vous pouvez sélectionner un quartier ci-dessous.'
-        } else if (error.code === error.TIMEOUT) {
-          msg = 'Délai d\'attente GPS dépassé. Veuillez choisir un quartier prédéfini.'
-        }
-        toastError('Géolocalisation', msg)
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    )
+    try {
+      const res = await getSmartGeolocation(city)
+      setIsLocating(false)
+      const newLat = res.latitude.toFixed(6)
+      const newLng = res.longitude.toFixed(6)
+      setLat(newLat)
+      setLng(newLng)
+      onChange({ latitude: newLat, longitude: newLng, city, neighborhood })
+      toastSuccess('Position détectée ! 📍', res.message)
+    } catch (err: any) {
+      setIsLocating(false)
+      toastError('Géolocalisation', 'Impossible de récupérer la position. Veuillez choisir un quartier ci-dessous.')
+    }
   }
 
   const handleSelectPreset = (preset: typeof CAMEROON_PRESETS[0]) => {
