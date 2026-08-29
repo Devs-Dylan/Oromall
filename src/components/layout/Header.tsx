@@ -308,25 +308,26 @@ export default function Header() {
               </Link>
             ))}
 
-            {user?.account_type === 'seller' && (
-              <Link
-                to="/seller"
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
+            {/* Theme & User Profile quick access in Mobile Drawer */}
+            <div className="pt-2 border-t border-border flex items-center justify-between">
+              <button
+                onClick={() => setDark(!dark)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-foreground bg-muted hover:bg-muted/80 transition-colors"
               >
-                <LayoutDashboard className="w-4 h-4" />
-                Dashboard Vendeur
-              </Link>
-            )}
+                {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+                <span>{dark ? 'Mode Clair ☀️' : 'Mode Sombre 🌙'}</span>
+              </button>
 
-            {isAdmin() && (
-              <Link
-                to="/admin"
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-primary bg-primary/10"
-              >
-                <Shield className="w-4 h-4" />
-                Console Super-Admin
-              </Link>
-            )}
+              {user && (
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Mon Profil ({user.name.split(' ')[0]})</span>
+                </Link>
+              )}
+            </div>
           </div>
         )}
       </header>
