@@ -49,8 +49,8 @@ export default function LoginPage() {
 
       <div className="w-full max-w-5xl rounded-3xl border border-border/80 bg-card/90 backdrop-blur-xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12">
         
-        {/* ================= GAUCHE : BANDEAU IMMERSIF (Desktop) ================= */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/90 text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-amber-500/20">
+        {/* ================= GAUCHE : BANDEAU IMMERSIF (Desktop uniquement) ================= */}
+        <div className="hidden lg:flex lg:col-span-5 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/90 text-white p-8 sm:p-10 flex-col justify-between relative overflow-hidden border-r border-amber-500/20">
           
           {/* Motifs géométriques décoratifs */}
           <div className="absolute -top-16 -right-16 w-48 h-48 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
@@ -129,6 +129,18 @@ export default function LoginPage() {
         {/* ================= DROITE : FORMULAIRE DE CONNEXION ================= */}
         <div className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-center space-y-6">
           
+          {/* Logo compact visible uniquement sur mobile & tablette */}
+          <div className="flex lg:hidden items-center gap-2.5 mb-1">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-primary text-black font-black text-base flex items-center justify-center shadow-md">
+              OM
+            </div>
+            <div>
+              <span className="font-display font-black text-base tracking-tight text-foreground">
+                OroMall <span className="text-[10px] uppercase font-bold text-amber-500">GOLD</span>
+              </span>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-foreground tracking-tight">
               Bon retour parmi nous 👋
