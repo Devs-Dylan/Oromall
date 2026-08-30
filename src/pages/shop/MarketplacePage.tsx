@@ -13,6 +13,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea } from '@/components/ui/Input'
 import { useCart } from '@/hooks/useCart'
 import { useAuth } from '@/hooks/useAuth'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { AuthRequiredModal } from '@/components/auth/AuthRequiredModal'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
 import { ChevronLeft, ChevronRight as ChevronRightIcon, Megaphone, Sparkles } from 'lucide-react'
 import { SmartSearchBar } from '@/components/shared/SmartSearchBar'
@@ -50,6 +52,7 @@ export default function MarketplacePage() {
   const navigate = useNavigate()
   const { addItem } = useCart()
   const { user } = useAuth()
+  const { requireAuth, authModalOpen, closeAuthModal, modalMeta } = useRequireAuth()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('Toutes')
@@ -84,9 +87,16 @@ export default function MarketplacePage() {
   const [customerPhone, setCustomerPhone] = useState('')
   const [orderNote, setOrderNote] = useState('')
 
-  const products = ProductAPI.filter(p => p.status === 'active')
-  const shops = ShopAPI.filter(s => s.status === 'active')
-  const activeAds = AdAPI.filter(a => a.status === 'active')
+  const products = useMemo(() => ProductAPI.list(), [])
+  const shops = useMemo(() => ShopAPI.list(), [])
+  const ads = useMemo(() => AdAPI.list(), [])
+
+  // Public active sponsored banners
+  const activeAds = useMemo(() => {
+    const now = new Date().toISOString()
+    return ads.filter(a => a.status === 'active' && a.end_date >= now)
+  }, [ads])
+
   const middleAd = activeAds.find(a => a.position === 'marketplace_middle' || a.position === 'hero')
 
   // Wishlist set
@@ -98,19 +108,21 @@ export default function MarketplacePage() {
   const toggleWishlist = (productId: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!user) {
-      toastSuccess('Connexion requise', 'Connectez-vous pour ajouter des favoris.')
-      return
-    }
-    const existing = WishlistAPI.filter(w => w.user_id === user.id && w.product_id === productId)[0]
-    if (existing) {
-      WishlistAPI.delete(existing.id)
-      toastSuccess('Retiré des favoris')
-    } else {
-      WishlistAPI.create({ user_id: user.id, product_id: productId })
-      toastSuccess('Ajouté aux favoris !')
-    }
-    forceUpdate(n => n + 1)
+    requireAuth(() => {
+      if (!user) return
+      const existing = WishlistAPI.filter(w => w.user_id === user.id && w.product_id === productId)[0]
+      if (existing) {
+        WishlistAPI.delete(existing.id)
+        toastSuccess('Retiré des favoris')
+      } else {
+        WishlistAPI.create({ user_id: user.id, product_id: productId })
+        toastSuccess('Ajouté aux favoris !')
+      }
+      forceUpdate(n => n + 1)
+    }, {
+      title: 'Favoris réservés aux membres',
+      description: 'Connectez-vous pour sauvegarder vos produits préférés.',
+    })
   }
 
   // Filtered Products
@@ -575,16 +587,21 @@ export default function MarketplacePage() {
                           variant="outline"
                           className="flex-1 text-xs h-8 px-2"
                           onClick={() => {
-                            addItem({
-                              product_id: product.id,
-                              shop_id: product.shop_id,
-                              shop_name: product.shop_name,
-                              product_name: product.name,
-                              product_price: product.price,
-                              quantity: 1,
-                              image_url: product.image_url,
+                            requireAuth(() => {
+                              addItem({
+                                product_id: product.id,
+                                shop_id: product.shop_id,
+                                shop_name: product.shop_name,
+                                product_name: product.name,
+                                product_price: product.price,
+                                quantity: 1,
+                                image_url: product.image_url,
+                              })
+                              toastSuccess('Ajouté au panier !', product.name)
+                            }, {
+                              title: 'Ajout au panier',
+                              description: 'Connectez-vous pour ajouter des articles à votre panier et finaliser vos achats.',
                             })
-                            toastSuccess('Ajouté au panier !', product.name)
                           }}
                         >
                           <ShoppingBag className="w-3 h-3" /> Panier
@@ -592,7 +609,12 @@ export default function MarketplacePage() {
 
                         <Button
                           size="sm"
-                          onClick={() => openOrderModal(product)}
+                          onClick={() => {
+                            requireAuth(() => openOrderModal(product), {
+                              title: 'Commander directement',
+                              description: 'Connectez-vous pour commander cet article avec livraison sécurisée.',
+                            })
+                          }}
                           className="flex-1 text-xs h-8 px-2 bg-primary hover:bg-primary/90 text-white font-bold"
                         >
                           Commander directement
@@ -685,6 +707,15 @@ export default function MarketplacePage() {
           quantity={1}
         />
       )}
+
+      {/* Global Auth Barrier Modal for Unconnected Visitors */}
+      <AuthRequiredModal
+        open={authModalOpen}
+        onClose={closeAuthModal}
+        title={modalMeta.title}
+        description={modalMeta.description}
+        actionName={modalMeta.actionName}
+      />
     </div>
   )
 }

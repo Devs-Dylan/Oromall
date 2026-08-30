@@ -12,6 +12,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Input, Textarea } from '@/components/ui/Input'
 import { useCart } from '@/hooks/useCart'
 import { useAuth } from '@/hooks/useAuth'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { AuthRequiredModal } from '@/components/auth/AuthRequiredModal'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
 import { ProductCheckoutModal } from '@/components/product/ProductCheckoutModal'
 
@@ -20,6 +22,7 @@ export default function ProductDetailPage() {
   const navigate = useNavigate()
   const { addItem } = useCart()
   const { user } = useAuth()
+  const { requireAuth, authModalOpen, closeAuthModal, modalMeta } = useRequireAuth()
   const [, forceUpdate] = useState(0)
 
   const product = ProductAPI.get(id || '')
@@ -53,51 +56,61 @@ export default function ProductDetailPage() {
   const isWishlisted = user ? WishlistAPI.filter(w => w.user_id === user.id && w.product_id === product.id).length > 0 : false
 
   const toggleWishlist = () => {
-    if (!user) { toastError('Connexion requise', 'Connectez-vous pour ajouter aux favoris.'); return }
-    const existing = WishlistAPI.filter(w => w.user_id === user.id && w.product_id === product.id)[0]
-    if (existing) {
-      WishlistAPI.delete(existing.id)
-      toastSuccess('Retiré des favoris')
-    } else {
-      WishlistAPI.create({ user_id: user.id, product_id: product.id })
-      toastSuccess('Ajouté aux favoris !')
-    }
-    forceUpdate(n => n + 1)
+    requireAuth(() => {
+      if (!user) return
+      const existing = WishlistAPI.filter(w => w.user_id === user.id && w.product_id === product.id)[0]
+      if (existing) {
+        WishlistAPI.delete(existing.id)
+        toastSuccess('Retiré des favoris')
+      } else {
+        WishlistAPI.create({ user_id: user.id, product_id: product.id })
+        toastSuccess('Ajouté aux favoris !')
+      }
+      forceUpdate(n => n + 1)
+    }, {
+      title: 'Favoris réservés aux membres',
+      description: 'Connectez-vous pour enregistrer vos articles favoris et les retrouver à tout moment.',
+    })
   }
 
   const handleContactVendor = () => {
-    const pin = generatePin()
-    const order = OrderAPI.create({
-      shop_id: product.shop_id,
-      shop_name: product.shop_name,
-      product_id: product.id,
-      product_name: product.name,
-      product_price: product.price,
-      total: product.price,
-      customer_name: user?.name || 'Client OroMall',
-      customer_email: user?.email || '',
-      customer_phone: user?.phone || user?.mtn_number || user?.orange_number || '',
-      status: 'pending_payment',
-      pin_code: pin,
-    })
+    requireAuth(() => {
+      const pin = generatePin()
+      const order = OrderAPI.create({
+        shop_id: product.shop_id,
+        shop_name: product.shop_name,
+        product_id: product.id,
+        product_name: product.name,
+        product_price: product.price,
+        total: product.price,
+        customer_name: user?.name || 'Client OroMall',
+        customer_email: user?.email || '',
+        customer_phone: user?.phone || user?.mtn_number || user?.orange_number || '',
+        status: 'pending_payment',
+        pin_code: pin,
+      })
 
-    ChatAPI.create({
-      order_id: order.id,
-      sender_role: 'customer',
-      sender_name: user?.name || 'Client',
-      message: `Bonjour ${product.shop_name}, je souhaite des informations concernant l'article "${product.name}" (${formatPrice(product.price)}).`,
-    })
+      ChatAPI.create({
+        order_id: order.id,
+        sender_role: 'customer',
+        sender_name: user?.name || 'Client',
+        message: `Bonjour ${product.shop_name}, je souhaite des informations concernant l'article "${product.name}" (${formatPrice(product.price)}).`,
+      })
 
-    NotificationAPI.create({
-      shop_id: product.shop_id,
-      title: `Demande d'informations - ${product.name}`,
-      message: `${user?.name || 'Un client'} a ouvert une discussion sur le chat interne.`,
-      type: 'chat',
-      read: false,
-    })
+      NotificationAPI.create({
+        shop_id: product.shop_id,
+        title: `Demande d'informations - ${product.name}`,
+        message: `${user?.name || 'Un client'} a ouvert une discussion sur le chat interne.`,
+        type: 'chat',
+        read: false,
+      })
 
-    toastSuccess('Chat plateforme ouvert !', 'Le vendeur recevra une notification système.')
-    navigate(`/orders?chat=${order.id}`)
+      toastSuccess('Chat plateforme ouvert !', 'Le vendeur recevra une notification système.')
+      navigate(`/orders?chat=${order.id}`)
+    }, {
+      title: 'Discussion avec le vendeur',
+      description: 'Connectez-vous pour envoyer un message direct au vendeur certifié.',
+    })
   }
 
   const handleAvailabilityRequest = (e: React.FormEvent) => {
@@ -319,16 +332,21 @@ export default function ProductDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Button
                 onClick={() => {
-                  addItem({
-                    product_id: product.id,
-                    shop_id: product.shop_id,
-                    shop_name: product.shop_name,
-                    product_name: product.name,
-                    product_price: product.price,
-                    quantity: 1,
-                    image_url: product.image_url,
+                  requireAuth(() => {
+                    addItem({
+                      product_id: product.id,
+                      shop_id: product.shop_id,
+                      shop_name: product.shop_name,
+                      product_name: product.name,
+                      product_price: product.price,
+                      quantity: 1,
+                      image_url: product.image_url,
+                    })
+                    toastSuccess('Ajouté au panier !')
+                  }, {
+                    title: 'Ajout au panier',
+                    description: 'Connectez-vous pour ajouter cet article à votre panier et le commander.',
                   })
-                  toastSuccess('Ajouté au panier !')
                 }}
                 variant="outline"
                 className="w-full justify-center"
@@ -336,13 +354,26 @@ export default function ProductDetailPage() {
                 <ShoppingBag className="w-4 h-4" /> Ajouter au panier
               </Button>
 
-              <Button onClick={() => setOrderModalOpen(true)} className="w-full justify-center">
+              <Button
+                onClick={() => {
+                  requireAuth(() => setOrderModalOpen(true), {
+                    title: 'Commander ce produit',
+                    description: 'Connectez-vous pour finaliser votre commande avec paiement sécurisé et code PIN.',
+                  })
+                }}
+                className="w-full justify-center"
+              >
                 Commander directement
               </Button>
             </div>
 
             <Button
-              onClick={() => setAvailabilityModalOpen(true)}
+              onClick={() => {
+                requireAuth(() => setAvailabilityModalOpen(true), {
+                  title: 'Vérification de disponibilité',
+                  description: 'Connectez-vous pour envoyer une demande de stock au commerçant.',
+                })
+              }}
               className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-md"
             >
               <Package className="w-5 h-5" /> Disponible ? Vérifier la dispo
@@ -355,7 +386,16 @@ export default function ProductDetailPage() {
       <div className="space-y-6 pt-6 border-t border-border">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-display font-bold text-foreground">Avis clients ({reviews.length})</h2>
-          <Button variant="outline" size="sm" onClick={() => setReviewModalOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              requireAuth(() => setReviewModalOpen(true), {
+                title: 'Avis client',
+                description: 'Connectez-vous pour partager votre expérience sur cet article.',
+              })
+            }}
+          >
             Laisser un avis
           </Button>
         </div>
@@ -484,6 +524,15 @@ export default function ProductDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Global Auth Barrier Modal for Unconnected Visitors */}
+      <AuthRequiredModal
+        open={authModalOpen}
+        onClose={closeAuthModal}
+        title={modalMeta.title}
+        description={modalMeta.description}
+        actionName={modalMeta.actionName}
+      />
     </div>
   )
 }

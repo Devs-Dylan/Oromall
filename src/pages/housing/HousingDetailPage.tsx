@@ -12,8 +12,9 @@ import { formatPrice, buildWhatsAppUrl, cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { toastSuccess } from '@/components/ui/Toast'
-import LeafletMap, { MapMarkerItem } from '@/components/shared/LeafletMap'
 import { useAuth } from '@/hooks/useAuth'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { AuthRequiredModal } from '@/components/auth/AuthRequiredModal'
 import { VisitPackagesModal } from '@/components/housing/VisitPackagesModal'
 import { VisitPaymentForm } from '@/components/housing/VisitPaymentForm'
 
@@ -49,6 +50,7 @@ export default function HousingDetailPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
+  const { requireAuth, authModalOpen, closeAuthModal, modalMeta } = useRequireAuth()
   const housing = HousingAPI.get(id || '')
 
   const [selectedImage, setSelectedImage] = useState<string>(housing?.image_url || '')
@@ -446,7 +448,12 @@ export default function HousingDetailPage() {
                   </div>
 
                   <Button
-                    onClick={() => setShowPackageModal(true)}
+                    onClick={() => {
+                      requireAuth(() => setShowPackageModal(true), {
+                        title: 'Commander une autre visite',
+                        description: 'Connectez-vous pour choisir un forfait et planifier votre créneau avec le bailleur.',
+                      })
+                    }}
                     variant="outline"
                     className="w-full justify-center py-2.5 text-xs font-semibold border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
                   >
@@ -463,7 +470,12 @@ export default function HousingDetailPage() {
                   </div>
 
                   <Button
-                    onClick={() => setShowPackageModal(true)}
+                    onClick={() => {
+                      requireAuth(() => setShowPackageModal(true), {
+                        title: 'Demander une visite',
+                        description: 'Connectez-vous à votre compte pour choisir un forfait de visite et contacter le bailleur.',
+                      })
+                    }}
                     className="w-full justify-center py-3 text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg flex items-center gap-2"
                   >
                     <Calendar className="w-4 h-4" /> Demander une visite sur place
@@ -597,6 +609,15 @@ export default function HousingDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Global Auth Barrier Modal for Unconnected Visitors */}
+      <AuthRequiredModal
+        open={authModalOpen}
+        onClose={closeAuthModal}
+        title={modalMeta.title}
+        description={modalMeta.description}
+        actionName={modalMeta.actionName}
+      />
     </div>
   )
 }

@@ -2,9 +2,10 @@ import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from '@/components/layout/AppLayout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
+import { PageTransitionLoader } from '@/components/layout/PageTransitionLoader'
 import { useSubscriptionNotifications } from '@/hooks/useSubscriptionNotifications'
 
-// Code-Splitting : Chargement à la demande (Lazy Loading) de chaque page
+// Code-Splitting : Chargement à la demande (Lazy Loading) avec affichage fluide
 const MarketplacePage = lazy(() => import('@/pages/shop/MarketplacePage'))
 const ProductDetailPage = lazy(() => import('@/pages/product/ProductDetailPage'))
 const ShopDetailPage = lazy(() => import('@/pages/shop/ShopDetailPage'))
@@ -32,26 +33,14 @@ const ProjectExplorer = lazy(() => import('@/pages/project/ProjectExplorer'))
 const CustomerAvailabilityPage = lazy(() => import('@/pages/customer/CustomerAvailabilityPage'))
 const ProfilePage = lazy(() => import('@/pages/customer/ProfilePage'))
 
-// Composant Spinner léger pour le chargement instantané de la page active
-function PageLoader() {
-  return (
-    <div className="min-h-[60vh] flex items-center justify-center p-8">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-bold text-muted-foreground animate-pulse">Chargement en cours...</span>
-      </div>
-    </div>
-  )
-}
-
 export default function App() {
   useSubscriptionNotifications()
 
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={<PageTransitionLoader />}>
       <Routes>
         <Route element={<AppLayout />}>
-          {/* Public routes */}
+          {/* Public discovery routes */}
           <Route path="/" element={<MarketplacePage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/shop/:id" element={<ShopDetailPage />} />
@@ -61,10 +50,29 @@ export default function App() {
           <Route path="/housing/:id" element={<HousingDetailPage />} />
           <Route path="/map" element={<InteractiveMapPage />} />
 
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/p2p" element={<P2PPage />} />
-          <Route path="/referral" element={<ReferralPage />} />
+          {/* Protected customer routes (Requiert connexion) */}
+          <Route path="/cart" element={
+            <ProtectedRoute>
+              <CartPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/wishlist" element={
+            <ProtectedRoute>
+              <WishlistPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/p2p" element={
+            <ProtectedRoute>
+              <P2PPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/referral" element={
+            <ProtectedRoute>
+              <ReferralPage />
+            </ProtectedRoute>
+          } />
+
+          {/* Informational routes */}
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/terms" element={<TermsPage />} />
 
@@ -74,7 +82,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/role" element={<RoleSelectPage />} />
 
-          {/* Protected routes */}
+          {/* Protected user account routes */}
           <Route path="/profile" element={
             <ProtectedRoute>
               <ProfilePage />

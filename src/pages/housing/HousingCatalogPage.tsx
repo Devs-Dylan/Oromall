@@ -7,8 +7,9 @@ import {
 import { HousingAPI } from '@/lib/store'
 import { Housing, HousingCategory } from '@/types'
 import { formatPrice, cn, buildWhatsAppUrl } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
 import { useWishlist } from '@/hooks/useWishlist'
+import { useRequireAuth } from '@/hooks/useRequireAuth'
+import { AuthRequiredModal } from '@/components/auth/AuthRequiredModal'
 import LeafletMap, { MapMarkerItem } from '@/components/shared/LeafletMap'
 import { VisitPackagesModal } from '@/components/housing/VisitPackagesModal'
 
@@ -25,6 +26,7 @@ const CITIES = ['Toutes', 'Yaoundé', 'Douala', 'Buea', 'Bafoussam', 'Dschang', 
 export default function HousingCatalogPage() {
   const housings = HousingAPI.list()
   const { isHousingFavorite, toggleHousingFavorite } = useWishlist()
+  const { requireAuth, authModalOpen, closeAuthModal, modalMeta } = useRequireAuth()
   const navigate = useNavigate()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -241,7 +243,12 @@ export default function HousingCatalogPage() {
                           )}
                         </div>
                         <button
-                          onClick={() => toggleHousingFavorite(housing)}
+                          onClick={() => {
+                            requireAuth(() => toggleHousingFavorite(housing), {
+                              title: 'Favoris logements réservés',
+                              description: 'Connectez-vous pour enregistrer vos logements préférés.',
+                            })
+                          }}
                           className={cn(
                             "absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-transform shadow-md",
                             isHousingFavorite(housing.id) ? "bg-red-500 text-white" : "bg-black/60 text-white hover:text-red-400"
@@ -284,11 +291,16 @@ export default function HousingCatalogPage() {
                       <button
                         onClick={(e) => {
                           e.preventDefault()
-                          setSelectedHousingForVisit({
-                            id: housing.id,
-                            title: housing.title,
-                            city: housing.city,
-                            image_url: housing.image_url
+                          requireAuth(() => {
+                            setSelectedHousingForVisit({
+                              id: housing.id,
+                              title: housing.title,
+                              city: housing.city,
+                              image_url: housing.image_url
+                            })
+                          }, {
+                            title: 'Demande de visite',
+                            description: 'Connectez-vous pour choisir un forfait de visite et rencontrer le bailleur.',
                           })
                         }}
                         className="w-full py-2.5 rounded-xl border-2 border-emerald-500/40 hover:border-emerald-500 text-emerald-400 hover:bg-emerald-500/10 font-semibold text-xs text-center transition-colors flex items-center justify-center gap-2"
@@ -328,6 +340,15 @@ export default function HousingCatalogPage() {
           }}
         />
       )}
+
+      {/* Global Auth Barrier Modal for Unconnected Visitors */}
+      <AuthRequiredModal
+        open={authModalOpen}
+        onClose={closeAuthModal}
+        title={modalMeta.title}
+        description={modalMeta.description}
+        actionName={modalMeta.actionName}
+      />
     </div>
   )
 }
