@@ -17,6 +17,7 @@ export interface MapMarkerItem {
 interface LeafletMapProps {
   markers: MapMarkerItem[]
   referencePoint?: { latitude: number; longitude: number; label: string; website?: string } | null
+  selectedMarkerId?: string | null
   center?: [number, number]
   zoom?: number
   height?: string
@@ -28,6 +29,7 @@ interface LeafletMapProps {
 export default function LeafletMap({
   markers,
   referencePoint,
+  selectedMarkerId,
   center = [3.868, 11.521], // Default Yaoundé
   zoom = 12,
   height = '480px',
@@ -38,6 +40,7 @@ export default function LeafletMap({
   const mapRef = useRef<HTMLDivElement>(null)
   const leafletInstance = useRef<L.Map | null>(null)
   const markerGroupRef = useRef<L.LayerGroup | null>(null)
+  const markerInstancesRef = useRef<Map<string, L.Marker>>(new Map())
 
   useEffect(() => {
     if (!mapRef.current) return
@@ -46,7 +49,7 @@ export default function LeafletMap({
     if (!leafletInstance.current) {
       const map = L.map(mapRef.current).setView(center, zoom)
 
-      // Utilisation des tuiles officielles OpenStreetMap 100% gratuites et sans clé API requise
+      // OpenStreetMap tiles
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         subdomains: 'abc',
@@ -76,6 +79,7 @@ export default function LeafletMap({
 
     if (markerGroup) {
       markerGroup.clearLayers()
+      markerInstancesRef.current.clear()
     }
 
     if (map && markerGroup) {
@@ -136,6 +140,7 @@ export default function LeafletMap({
         if (!m.latitude || !m.longitude) return
 
         const isShop = m.type === 'shop'
+        const isSelected = selectedMarkerId === m.id
         const colorClass = isShop ? '#d97706' : '#10b981'
         const iconSymbol = isShop ? '🏬' : '🏠'
 
@@ -144,27 +149,29 @@ export default function LeafletMap({
           className: 'custom-leaflet-marker',
           html: `
             <div style="
-              background-color: ${colorClass};
-              color: white;
-              padding: 4px 10px;
+              background-color: ${isSelected ? '#f59e0b' : colorClass};
+              color: ${isSelected ? '#000' : 'white'};
+              padding: ${isSelected ? '6px 12px' : '4px 10px'};
               border-radius: 20px;
-              font-size: 11px;
-              font-weight: 800;
+              font-size: ${isSelected ? '12px' : '11px'};
+              font-weight: 900;
               display: flex;
               align-items: center;
               gap: 5px;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+              box-shadow: ${isSelected ? '0 0 0 4px rgba(245, 158, 11, 0.5), 0 6px 16px rgba(0,0,0,0.5)' : '0 4px 10px rgba(0,0,0,0.3)'};
               border: 2px solid white;
               white-space: nowrap;
               cursor: pointer;
+              transform: ${isSelected ? 'scale(1.1)' : 'scale(1)'};
+              transition: transform 0.2s;
             ">
               <span>${iconSymbol}</span>
               <span>${m.price || m.title}</span>
-              ${m.distanceKm !== undefined ? `<span style="background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 10px; font-size: 9px;">${m.distanceKm} km</span>` : ''}
+              ${m.distanceKm !== undefined ? `<span style="background: ${isSelected ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.35)'}; padding: 1px 5px; border-radius: 10px; font-size: 9px;">${m.distanceKm} km</span>` : ''}
             </div>
           `,
-          iconSize: [120, 30],
-          iconAnchor: [60, 15]
+          iconSize: isSelected ? [140, 36] : [120, 30],
+          iconAnchor: isSelected ? [70, 18] : [60, 15]
         })
 
         const marker = L.marker([m.latitude, m.longitude], { icon: customIcon })
@@ -189,15 +196,23 @@ export default function LeafletMap({
 
         marker.bindPopup(popupContent)
 
-        if (onMarkerClick) {
-          marker.on('click', () => onMarkerClick(m))
-        }
+        marker.on('click', () => {
+          if (onMarkerClick) onMarkerClick(m)
+        })
 
         markerGroup.addLayer(marker)
+        markerInstancesRef.current.set(m.id, marker)
         bounds.extend([m.latitude, m.longitude])
       })
 
-      if (bounds.isValid()) {
+      // If a marker is selected, focus on it
+      if (selectedMarkerId && markerInstancesRef.current.has(selectedMarkerId)) {
+        const targetMarker = markerInstancesRef.current.get(selectedMarkerId)
+        if (targetMarker) {
+          map.setView(targetMarker.getLatLng(), 15, { animate: true })
+          targetMarker.openPopup()
+        }
+      } else if (bounds.isValid()) {
         if (markers.length > 1 || (referencePoint && markers.length >= 1)) {
           map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
         } else if (markers.length === 1) {
@@ -207,7 +222,7 @@ export default function LeafletMap({
         }
       }
     }
-  }, [markers, referencePoint, center, zoom])
+  }, [markers, referencePoint, selectedMarkerId, center, zoom])
 
   // Cleanup on unmount
   useEffect(() => {

@@ -35,6 +35,7 @@ export default function HousingCatalogPage() {
   const [maxPrice, setMaxPrice] = useState<number>(500000)
   const [furnishedOnly, setFurnishedOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
+  const [selectedHousingId, setSelectedHousingId] = useState<string | null>(null)
   const [selectedHousingForVisit, setSelectedHousingForVisit] = useState<{ id: string; title: string; city: string; image_url: string } | null>(null)
   const [visibleCount, setVisibleCount] = useState(6)
 
@@ -188,12 +189,90 @@ export default function HousingCatalogPage() {
 
       {/* Main Content Area: Grid or Interactive Map */}
       {viewMode === 'map' ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-foreground text-lg">Carte des logements disponibles</h3>
-            <span className="text-xs text-muted-foreground">{mapMarkers.length} logements géolocalisés</span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Side List of housings */}
+          <div className="lg:col-span-5 space-y-3.5 lg:max-h-[620px] lg:overflow-y-auto lg:pr-2">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                <Home className="w-4 h-4 text-emerald-400" /> {filteredHousings.length} logements sur la carte
+              </h3>
+              <span className="text-xs text-muted-foreground">Cliquez pour situer</span>
+            </div>
+
+            {filteredHousings.map(h => {
+              const isSelected = selectedHousingId === h.id
+              return (
+                <div
+                  key={h.id}
+                  onClick={() => setSelectedHousingId(h.id)}
+                  className={cn(
+                    "card-glass p-3 rounded-2xl transition-all cursor-pointer border flex flex-col sm:flex-row gap-3 group",
+                    isSelected
+                      ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30 shadow-md"
+                      : "border-border hover:border-emerald-500/50 hover:bg-muted/40"
+                  )}
+                >
+                  <div className="relative w-full sm:w-32 h-24 rounded-xl overflow-hidden bg-card shrink-0 border border-border">
+                    <img src={h.image_url} alt={h.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/80 text-white text-[9px] font-bold capitalize">
+                      {h.category}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 min-w-0 flex flex-col justify-between space-y-1.5">
+                    <div>
+                      <div className="flex items-start justify-between gap-1">
+                        <h4 className="font-bold text-xs text-foreground line-clamp-1 group-hover:text-emerald-400 transition-colors">
+                          {h.title}
+                        </h4>
+                        <span className="text-xs font-black text-emerald-400 shrink-0">
+                          {formatPrice(h.price)}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                        {h.city} • {h.neighborhood}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1 border-t border-border/40">
+                      <span>{h.surface_sqm} m²</span>
+                      <span>• {h.bedrooms} ch.</span>
+                      <span>• {h.bathrooms} sdb</span>
+                      {h.furnished && <span>• Meublé</span>}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Link
+                        to={`/housing/${h.id}`}
+                        onClick={e => e.stopPropagation()}
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] text-center flex items-center justify-center gap-1 shadow-sm"
+                      >
+                        Consulter <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-          <LeafletMap markers={mapMarkers} center={[3.868, 11.521]} zoom={12} height="550px" />
+
+          {/* Sticky Leaflet Map */}
+          <div className="lg:col-span-7 space-y-2 lg:sticky lg:top-20">
+            <div className="flex items-center justify-between text-xs text-muted-foreground px-2">
+              <span className="font-semibold text-foreground">Carte interactive en direct</span>
+              <span>{mapMarkers.length} repères</span>
+            </div>
+            <LeafletMap
+              markers={mapMarkers}
+              selectedMarkerId={selectedHousingId}
+              onMarkerClick={(m) => setSelectedHousingId(m.id)}
+              center={[3.868, 11.521]}
+              zoom={12}
+              height="600px"
+              className="border-emerald-500/40 shadow-xl"
+            />
+          </div>
         </div>
       ) : (
         <div>
