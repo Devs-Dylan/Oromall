@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal'
 import { FileUploadField } from '@/components/ui/FileUploadField'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
 import { OrderAPI, ChatAPI, NotificationAPI, CommissionAPI, ShopAPI } from '@/lib/store'
+import { createMaketouCheckout, maketouCartKey } from '@/lib/maketou'
 import { CITIES_CAMEROON, type PaymentMethod, type CartItem } from '@/types'
 
 const ADMIN_MTN = '680195221'
@@ -32,6 +33,7 @@ export default function CartPage() {
 
   // Checkout Modal State
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false)
+  const [checkoutType, setCheckoutType] = useState<'maketou' | 'manual'>('maketou')
   const [customerName, setCustomerName] = useState(user?.name || '')
   const [customerEmail, setCustomerEmail] = useState(user?.email || '')
   const [whatsappNumber, setWhatsappNumber] = useState(user?.phone || user?.mtn_number || user?.orange_number || '')
@@ -105,8 +107,8 @@ export default function CartPage() {
           notes: deliveryNotes.trim() || undefined
         },
         message: deliveryNotes.trim() || undefined,
-        status: paymentProof || paymentReference.trim() ? 'payment_uploaded' : 'pending_payment',
-        payment_method: paymentMethod,
+        status: checkoutType === 'maketou' ? 'pending_payment' : (paymentProof || paymentReference.trim() ? 'payment_uploaded' : 'pending_payment'),
+        payment_method: checkoutType === 'maketou' ? 'momo_online' : paymentMethod,
         payment_proof_url: paymentProof,
         payment_reference: paymentReference.trim() || undefined,
         payment_verified: false,
@@ -151,6 +153,36 @@ export default function CartPage() {
       })
     })
 
+    // SI PAIEMENT EN LIGNE MAKETOU SÉLECTIONNÉ :
+    if (checkoutType === 'maketou' && firstOrderId) {
+      try {
+        const maketouRes = await createMaketouCheckout({
+          amount: finalTotal,
+          firstName: customerName.trim(),
+          email: customerEmail.trim() || `${whatsappNumber.replace(/\D/g, '')}@client.oromall.cm`,
+          phone: whatsappNumber.trim(),
+          redirectURL: `${window.location.origin}/orders?status=return&ref=${firstOrderId}`,
+          meta: {
+            orderGroupId: firstOrderId,
+            source: 'oromall_cart_checkout',
+          },
+        })
+
+        if (maketouRes.success && maketouRes.invoice_url) {
+          if (maketouRes.cartId) {
+            localStorage.setItem(maketouCartKey(firstOrderId), maketouRes.cartId)
+          }
+          clearCart()
+          window.location.href = maketouRes.invoice_url
+          return
+        } else {
+          toastError('Erreur passerelle Maketou', maketouRes.message || 'Impossible d\'ouvrir le guichet.')
+        }
+      } catch (err: any) {
+        toastError('Erreur de paiement', err?.message || 'Erreur réseau.')
+      }
+    }
+
     setCompletedOrderGroupId(firstOrderId)
     setProcessing(false)
     clearCart()
@@ -159,7 +191,7 @@ export default function CartPage() {
 
   const targetMoMoNumber = paymentMethod === 'mtn' ? ADMIN_MTN : ADMIN_ORANGE
 
-  const whatsappNotificationText = `Bonjour OroMall ! J'ai validé ma commande sur la plateforme :\n• Montant Total : ${formatPrice(finalTotal)}\n• Client : ${customerName}\n• WhatsApp : ${whatsappNumber}\n• Ville & Quartier : ${deliveryCity} (${deliveryNeighborhood})\n• Paiement choisi : ${paymentMethod === 'mtn' ? 'MTN MoMo' : 'Orange Money'}\n• Code PIN de livraison : ${createdOrderPin}\nRéf: ${paymentReference || 'Preuve envoyée'}`
+  const whatsappNotificationText = `Bonjour OroMall ! J'ai validé ma commande sur la plateforme :\n• Montant Total : ${formatPrice(finalTotal)}\n• Client : ${customerName}\n• WhatsApp : ${whatsappNumber}\n• Ville & Quartier : ${deliveryCity} (${deliveryNeighborhood})\n• Paiement choisi : ${checkoutType === 'maketou' ? 'Paiement en ligne instantané (Maketou MoMo/OM)' : paymentMethod === 'mtn' ? 'MTN MoMo' : 'Orange Money'}\n• Code PIN de livraison : ${createdOrderPin}\nRéf: ${paymentReference || 'Preuve envoyée'}`
 
   if (items.length === 0 && !completedOrderGroupId) {
     return (
@@ -427,72 +459,126 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* 3. Mobile Money Payment Choice */}
+                {/* 3. Mode de Paiement : En Ligne Instantané (Maketou) vs Transfert Manuel */}
                 <div className="space-y-3 p-3.5 rounded-2xl bg-card border border-border">
-                  <h3 className="font-bold text-foreground flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-amber-400" /> 2. Mode de Paiement Mobile Money
+                  <h3 className="font-bold text-foreground flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-amber-400" /> 2. Mode de Paiement Mobile Money
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      Sécurisé Maketou
+                    </span>
                   </h3>
 
-                  <div className="grid grid-cols-2 gap-2.5">
+                  {/* Choix du mode */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('mtn')}
+                      onClick={() => setCheckoutType('maketou')}
                       className={cn(
-                        'p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-center',
-                        paymentMethod === 'mtn'
-                          ? 'border-amber-400 bg-amber-500/10 text-amber-300 font-bold ring-2 ring-amber-400/20'
+                        'p-3.5 rounded-xl border text-left transition-all relative flex flex-col justify-between space-y-1',
+                        checkoutType === 'maketou'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-foreground ring-2 ring-emerald-500/20 shadow-md'
                           : 'border-border bg-card text-muted-foreground hover:bg-muted'
                       )}
                     >
-                      <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-                      <span className="text-xs font-black">MTN Mobile Money</span>
-                      <span className="text-[10px] opacity-80">{ADMIN_MTN}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-emerald-500 flex items-center gap-1">
+                          ⚡ Paiement en Ligne Direct
+                        </span>
+                        <span className="text-[9px] uppercase font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
+                          Instantané
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        MTN MoMo, Orange Money, Wave & Carte. Push USSD direct sur votre téléphone.
+                      </p>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('orange')}
+                      onClick={() => setCheckoutType('manual')}
                       className={cn(
-                        'p-3 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-center',
-                        paymentMethod === 'orange'
-                          ? 'border-orange-500 bg-orange-500/10 text-orange-300 font-bold ring-2 ring-orange-500/20'
+                        'p-3.5 rounded-xl border text-left transition-all relative flex flex-col justify-between space-y-1',
+                        checkoutType === 'manual'
+                          ? 'border-amber-400 bg-amber-500/10 text-foreground ring-2 ring-amber-400/20 shadow-md'
                           : 'border-border bg-card text-muted-foreground hover:bg-muted'
                       )}
                     >
-                      <span className="w-3 h-3 rounded-full bg-orange-500 inline-block" />
-                      <span className="text-xs font-black">Orange Money</span>
-                      <span className="text-[10px] opacity-80">{ADMIN_ORANGE}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-amber-400">
+                          Transfert Manuel MoMo
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Envoi manuel vers le numéro de la plateforme avec capture du reçu.
+                      </p>
                     </button>
                   </div>
 
-                  <div className="p-3 bg-muted/40 rounded-xl border border-border/50 text-[11px] space-y-1 text-muted-foreground">
-                    <p className="font-bold text-foreground">
-                      Transférez <strong className="text-emerald-400">{formatPrice(finalTotal)}</strong> au compte :
-                    </p>
-                    <p className="font-mono font-black text-xs text-primary bg-card p-1.5 rounded border border-border inline-block">
-                      {targetMoMoNumber} ({paymentMethod === 'mtn' ? 'MTN MoMo' : 'Orange Money'})
-                    </p>
-                  </div>
+                  {/* Si transfert manuel sélectionné */}
+                  {checkoutType === 'manual' && (
+                    <div className="space-y-3 pt-2 animate-in fade-in duration-200">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('mtn')}
+                          className={cn(
+                            'p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all text-center',
+                            paymentMethod === 'mtn'
+                              ? 'border-amber-400 bg-amber-500/10 text-amber-300 font-bold ring-2 ring-amber-400/20'
+                              : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                          )}
+                        >
+                          <span className="text-xs font-black">MTN Mobile Money</span>
+                          <span className="text-[10px] opacity-80">{ADMIN_MTN}</span>
+                        </button>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                    <div>
-                      <FileUploadField
-                        label="Capture du reçu MoMo"
-                        value={paymentProof}
-                        onChange={setPaymentProof}
-                        accept="image/*,.pdf"
-                      />
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('orange')}
+                          className={cn(
+                            'p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all text-center',
+                            paymentMethod === 'orange'
+                              ? 'border-orange-500 bg-orange-500/10 text-orange-300 font-bold ring-2 ring-orange-500/20'
+                              : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                          )}
+                        >
+                          <span className="text-xs font-black">Orange Money</span>
+                          <span className="text-[10px] opacity-80">{ADMIN_ORANGE}</span>
+                        </button>
+                      </div>
 
-                    <div className="space-y-1">
-                      <label className="font-semibold text-foreground">Réf / ID Transaction</label>
-                      <Input
-                        value={paymentReference}
-                        onChange={e => setPaymentReference(e.target.value)}
-                        placeholder="Ex: MP240822.0915.A..."
-                      />
+                      <div className="p-3 bg-muted/40 rounded-xl border border-border/50 text-[11px] space-y-1 text-muted-foreground">
+                        <p className="font-bold text-foreground">
+                          Transférez <strong className="text-emerald-400">{formatPrice(finalTotal)}</strong> au compte :
+                        </p>
+                        <p className="font-mono font-black text-xs text-primary bg-card p-1.5 rounded border border-border inline-block">
+                          {targetMoMoNumber} ({paymentMethod === 'mtn' ? 'MTN MoMo' : 'Orange Money'})
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <div>
+                          <FileUploadField
+                            label="Capture du reçu MoMo"
+                            value={paymentProof}
+                            onChange={setPaymentProof}
+                            accept="image/*,.pdf"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-semibold text-foreground text-xs">Réf / ID Transaction</label>
+                          <Input
+                            value={paymentReference}
+                            onChange={e => setPaymentReference(e.target.value)}
+                            placeholder="Ex: MP240822.0915.A..."
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Total & Action Button */}
@@ -500,10 +586,14 @@ export default function CartPage() {
                   <Button
                     type="submit"
                     disabled={processing}
-                    className="w-full py-3 bg-primary hover:bg-primary/90 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/25"
+                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-primary to-amber-600 hover:opacity-95 text-black font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-primary/25 rounded-xl"
                   >
                     <ShieldCheck className="w-4 h-4" />
-                    {processing ? 'Validation en cours...' : `Confirmer la commande & Réserver (${formatPrice(finalTotal)})`}
+                    {processing
+                      ? 'Connexion sécurisée à Maketou...'
+                      : checkoutType === 'maketou'
+                      ? `Payer ${formatPrice(finalTotal)} en ligne via Maketou`
+                      : `Confirmer la commande (${formatPrice(finalTotal)})`}
                   </Button>
 
                   <p className="text-[10px] text-center text-muted-foreground flex items-center justify-center gap-1">

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
 import { LoyaltyPointsWidget } from '@/components/customer/LoyaltyPointsWidget'
+import { getMaketouCartStatus, maketouCartKey } from '@/lib/maketou'
 
 export default function OrdersPage() {
   const { user } = useAuth()
@@ -81,6 +82,42 @@ export default function OrdersPage() {
       if (targetOrder) {
         setActiveOrder(targetOrder)
         setChatModalOpen(true)
+      }
+    }
+  }, [searchParams])
+
+  // Maketou Return verification handler
+  useEffect(() => {
+    const status = searchParams.get('status')
+    const ref = searchParams.get('ref')
+    const type = searchParams.get('type')
+
+    if (status === 'return' && ref) {
+      const cartId = localStorage.getItem(maketouCartKey(ref))
+      if (cartId) {
+        getMaketouCartStatus(cartId).then((cart) => {
+          if (cart?.status === 'completed') {
+            if (type === 'visit') {
+              VisitRequestAPI.update(ref, {
+                payment_status: 'approved',
+                status: 'approved',
+              })
+              toastSuccess('Paiement Maketou validé avec succès !', 'Votre visite a été approuvée.')
+              setMainTab('housing')
+            } else {
+              OrderAPI.update(ref, {
+                status: 'confirmed',
+                payment_verified: true,
+              })
+              toastSuccess('Paiement Maketou confirmé avec succès ! 🎉', 'Votre commande est en cours de préparation.')
+            }
+            forceUpdate(n => n + 1)
+          } else if (cart?.status === 'abandoned' || cart?.status === 'payment_failed') {
+            toastError('Paiement non finalisé', 'Le paiement a été interrompu ou refusé.')
+          } else {
+            toastSuccess('Paiement enregistré', 'Votre transaction est en cours de traitement.')
+          }
+        })
       }
     }
   }, [searchParams])

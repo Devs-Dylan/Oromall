@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { X, CheckCircle, Phone, Calendar, Clock, Upload, MessageCircle } from 'lucide-react'
+import { X, CheckCircle, Phone, Calendar, Clock, Upload, MessageCircle, Zap, CreditCard, ShieldCheck } from 'lucide-react'
 import type { VisitRequest, VisitPackage } from '@/types'
 import { VISIT_PACKAGES, PaymentMethod } from '@/types'
 import { VisitRequestAPI, NotificationAPI } from '@/lib/store'
-import { formatPrice, buildWhatsAppUrl } from '@/lib/utils'
+import { formatPrice, buildWhatsAppUrl, cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { FileUploadField } from '@/components/ui/FileUploadField'
 import { toastSuccess, toastError } from '@/components/ui/Toast'
+import { createMaketouCheckout, maketouCartKey } from '@/lib/maketou'
 
 interface VisitPaymentFormProps {
   open: boolean
@@ -31,6 +32,7 @@ export function VisitPaymentForm({
   open, onClose, housingId, housingTitle, housingCity, housingImage,
   visitorName, visitorEmail, visitorPhone, selectedPackage, onSuccess
 }: VisitPaymentFormProps) {
+  const [checkoutType, setCheckoutType] = useState<'maketou' | 'manual'>('maketou')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mtn')
   const [paymentProof, setPaymentProof] = useState<string | undefined>(undefined)
   const [paymentReference, setPaymentReference] = useState('')
@@ -50,7 +52,7 @@ export function VisitPaymentForm({
       toastError('Le numéro WhatsApp du client est obligatoire pour les notifications de visite.')
       return
     }
-    if (!paymentProof && !paymentReference.trim()) {
+    if (checkoutType === 'manual' && !paymentProof && !paymentReference.trim()) {
       toastError('Veuillez fournir la preuve de paiement (capture ou référence).')
       return
     }
@@ -60,7 +62,6 @@ export function VisitPaymentForm({
     }
 
     setProcessing(true)
-    await new Promise(r => setTimeout(r, 800))
 
     const request: Omit<VisitRequest, 'id' | 'created_date' | 'updated_date'> = {
       housing_id: housingId,
@@ -68,12 +69,12 @@ export function VisitPaymentForm({
       housing_city: housingCity,
       housing_image: housingImage,
       visitor_name: visitorName || 'Étudiant / Client',
-      visitor_email: visitorEmail || 'client@marcheplus.cm',
+      visitor_email: visitorEmail || 'client@oromall.cm',
       visitor_phone: whatsappNumber,
       package_type: pkg.id,
       package_label: pkg.label,
       amount: pkg.price,
-      payment_method: paymentMethod,
+      payment_method: checkoutType === 'maketou' ? 'momo_online' : paymentMethod,
       payment_proof_url: paymentProof,
       payment_reference: paymentReference || undefined,
       payment_status: 'pending',
@@ -93,6 +94,37 @@ export function VisitPaymentForm({
       read: false,
     })
 
+    // SI PAIEMENT EN LIGNE MAKETOU SÉLECTIONNÉ :
+    if (checkoutType === 'maketou') {
+      try {
+        const maketouRes = await createMaketouCheckout({
+          amount: pkg.price,
+          firstName: (visitorName || 'Client').trim(),
+          email: visitorEmail || `${whatsappNumber.replace(/\D/g, '')}@client.oromall.cm`,
+          phone: whatsappNumber.trim(),
+          redirectURL: `${window.location.origin}/orders?status=return&ref=${saved.id}&type=visit`,
+          meta: {
+            visitRequestId: saved.id,
+            housingId,
+            package: pkg.id,
+            source: 'oromall_housing_visit',
+          },
+        })
+
+        if (maketouRes.success && maketouRes.invoice_url) {
+          if (maketouRes.cartId) {
+            localStorage.setItem(maketouCartKey(saved.id), maketouRes.cartId)
+          }
+          window.location.href = maketouRes.invoice_url
+          return
+        } else {
+          toastError('Erreur passerelle Maketou', maketouRes.message || 'Impossible d\'ouvrir le guichet.')
+        }
+      } catch (err: any) {
+        toastError('Erreur de paiement', err?.message || 'Erreur réseau.')
+      }
+    }
+
     setCreatedRequest(saved)
     setProcessing(false)
     toastSuccess('Demande de visite enregistrée !', 'Vous pouvez notifier le support via WhatsApp.')
@@ -102,13 +134,13 @@ export function VisitPaymentForm({
   if (!open) return null
 
   const whatsappConfirmMessage = createdRequest
-    ? `Bonjour MarchéPlus ! Je viens de payer le ${pkg.label} (${formatPrice(pkg.price)}) pour visiter le logement : "${housingTitle}" (${housingCity}) le ${visitDate} à ${visitTime}.\nMon WhatsApp de contact : ${whatsappNumber}\nRéf: ${paymentReference || 'Preuve envoyée'}`
+    ? `Bonjour OroMall ! Je viens de réserver le ${pkg.label} (${formatPrice(pkg.price)}) pour visiter le logement : "${housingTitle}" (${housingCity}) le ${visitDate} à ${visitTime}.\nMon WhatsApp de contact : ${whatsappNumber}\nRéf: ${paymentReference || 'Preuve envoyée'}`
     : ''
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="card-glass p-6 md:p-8 max-w-lg w-full space-y-6 animate-in fade-in duration-200 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="card-glass p-6 md:p-8 max-w-lg w-full space-y-6 max-h-[90vh] overflow-y-auto border border-primary/40 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <div>
             <h2 className="text-xl font-bold font-display text-foreground">Demande de Visite Logement</h2>
             <p className="text-xs text-muted-foreground mt-0.5">Paiement du forfait et planification de votre visite.</p>
@@ -119,21 +151,30 @@ export function VisitPaymentForm({
         </div>
 
         {createdRequest ? (
-          <div className="space-y-5 text-center py-4">
-            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle className="w-10 h-10" />
+          <div className="text-center space-y-4 py-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-lg">
+              <CheckCircle className="w-8 h-8" />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-foreground">Demande Envoyée avec Succès !</h3>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Votre demande de visite a été enregistrée. Vous recevrez toutes les notifications sur votre WhatsApp (<strong className="text-foreground">{whatsappNumber}</strong>).
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Demande de visite transmise !</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                Votre demande pour <strong className="text-foreground">{housingTitle}</strong> a bien été enregistrée.
               </p>
             </div>
 
-            <div className="p-4 bg-muted/40 rounded-xl border border-border text-left text-xs space-y-1">
-              <p><span className="text-muted-foreground">Logement :</span> <strong>{housingTitle}</strong></p>
-              <p><span className="text-muted-foreground">Date :</span> {visitDate} à {visitTime}</p>
-              <p><span className="text-muted-foreground">Forfait :</span> {pkg.label} ({formatPrice(pkg.price)})</p>
+            <div className="p-4 rounded-xl bg-card border border-border text-left space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Forfait :</span>
+                <span className="font-bold text-foreground">{pkg.label} ({formatPrice(pkg.price)})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Date :</span>
+                <span className="font-bold text-foreground">{visitDate} à {visitTime}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Contact :</span>
+                <span className="font-bold text-foreground">{whatsappNumber}</span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2 pt-2">
@@ -141,99 +182,143 @@ export function VisitPaymentForm({
                 href={buildWhatsAppUrl(ADMIN_WHATSAPP, whatsappConfirmMessage)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors shadow-lg shadow-emerald-600/20"
+                className="btn-primary w-full justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
               >
-                <MessageCircle className="w-5 h-5" /> Notifier le support sur WhatsApp
+                <MessageCircle className="w-4 h-4" /> Envoyer la confirmation sur WhatsApp
               </a>
-              <Button variant="ghost" onClick={onClose} className="w-full">
+              <Button variant="outline" onClick={onClose} className="w-full justify-center text-xs">
                 Fermer
               </Button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Package Summary */}
-            <div className="p-4 rounded-xl bg-muted/40 border border-border/40 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-foreground">{pkg.label}</span>
-                <span className="text-sm font-extrabold text-primary">{formatPrice(pkg.price)}</span>
+            {/* Housing & Package Summary */}
+            <div className="p-4 rounded-2xl bg-muted/60 border border-border/80 flex items-center gap-3">
+              <img src={housingImage} alt={housingTitle} className="w-12 h-12 rounded-xl object-cover border border-border/50 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-foreground truncate">{housingTitle}</h4>
+                <p className="text-[11px] text-muted-foreground">{housingCity}</p>
+                <p className="text-xs font-extrabold text-primary">{pkg.label} • {formatPrice(pkg.price)}</p>
               </div>
-              <p className="text-xs text-muted-foreground">{pkg.description}</p>
             </div>
 
-            {/* WhatsApp Obligatoire */}
-            <div className="space-y-1.5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-              <label className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                <MessageCircle className="w-4 h-4" /> Numéro WhatsApp du Client (Obligatoire pour les alertes) *
-              </label>
+            {/* WhatsApp Contact */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground">Numéro WhatsApp du visiteur *</label>
               <Input
-                type="tel"
                 value={whatsappNumber}
                 onChange={e => setWhatsappNumber(e.target.value)}
-                placeholder="Ex: 677123456 ou +237 6..."
+                placeholder="Ex: 680195221"
                 required
-                className="bg-card font-medium"
               />
-              <p className="text-[11px] text-muted-foreground">
-                L'agent et le propriétaire vous enverront l'adresse exacte et la confirmation sur ce numéro.
-              </p>
+              <p className="text-[10px] text-muted-foreground">Pour recevoir la confirmation du bailleur et la localisation GPS exacte.</p>
             </div>
 
-            {/* Payment Method */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Mode de paiement</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('mtn')}
-                  className={`p-4 rounded-xl border-2 text-center transition-all ${paymentMethod === 'mtn' ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'}`}
-                >
-                  <Phone className="w-6 h-6 mx-auto mb-1 text-yellow-500" />
-                  <p className="text-sm font-bold text-foreground">MTN MoMo</p>
-                  <p className="text-xs text-muted-foreground">{ADMIN_MTN}</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('orange')}
-                  className={`p-4 rounded-xl border-2 text-center transition-all ${paymentMethod === 'orange' ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'}`}
-                >
-                  <Phone className="w-6 h-6 mx-auto mb-1 text-orange-500" />
-                  <p className="text-sm font-bold text-foreground">Orange Money</p>
-                  <p className="text-xs text-muted-foreground">{ADMIN_ORANGE}</p>
-                </button>
-              </div>
-            </div>
-
-            {/* Amount Display */}
-            <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-center space-y-1">
-              <p className="text-xs text-muted-foreground">Montant à payer</p>
-              <p className="text-2xl font-extrabold text-primary">{formatPrice(pkg.price)}</p>
-              <p className="text-xs text-muted-foreground">Numéro {paymentMethod === 'mtn' ? 'MTN' : 'Orange'} : <strong className="text-foreground">{adminNumber}</strong></p>
-            </div>
-
-            {/* Payment Proof */}
-            <FileUploadField
-              label="Capture de paiement (optionnel si référence)"
-              value={paymentProof}
-              onChange={(val) => { setPaymentProof(val); if (val) setPaymentReference('') }}
-              accept="image/*"
-              maxSizeMB={10}
-            />
-
-            <Input
-              label="Référence de transaction (optionnel si capture)"
-              value={paymentReference}
-              onChange={e => setPaymentReference(e.target.value)}
-              placeholder="Ex: TXN123456"
-            />
-
-            {/* Visit Schedule */}
-            <div className="pt-4 border-t border-border space-y-4">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" /> Planifier la visite
+            {/* Payment Choice */}
+            <div className="space-y-3 p-3.5 rounded-2xl bg-card border border-border">
+              <h3 className="font-bold text-foreground flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-amber-400" /> Mode de Règlement ({formatPrice(pkg.price)})
+                </span>
+                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  Sécurisé Maketou
+                </span>
               </h3>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setCheckoutType('maketou')}
+                  className={cn(
+                    'p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between space-y-1',
+                    checkoutType === 'maketou'
+                      ? 'border-emerald-500 bg-emerald-500/10 text-foreground ring-2 ring-emerald-500/20 shadow-md'
+                      : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-emerald-500 flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 fill-emerald-500" /> Paiement Direct en Ligne
+                    </span>
+                    <span className="text-[9px] uppercase font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
+                      Instantané
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    MTN MoMo, OM, Wave & Carte. Push USSD sur votre mobile.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCheckoutType('manual')}
+                  className={cn(
+                    'p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between space-y-1',
+                    checkoutType === 'manual'
+                      ? 'border-amber-400 bg-amber-500/10 text-foreground ring-2 ring-amber-400/20 shadow-md'
+                      : 'border-border bg-card text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-amber-400">
+                      Transfert Manuel MoMo
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Transfert au numéro de l'agence avec justificatif.
+                  </p>
+                </button>
+              </div>
+
+              {checkoutType === 'manual' && (
+                <div className="space-y-3 pt-2 animate-in fade-in duration-200">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('mtn')}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${paymentMethod === 'mtn' ? 'border-primary bg-primary/10 font-bold' : 'border-border hover:bg-muted'}`}
+                    >
+                      <p className="text-xs font-bold text-foreground">MTN MoMo</p>
+                      <p className="text-[10px] text-muted-foreground">{ADMIN_MTN}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('orange')}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${paymentMethod === 'orange' ? 'border-primary bg-primary/10 font-bold' : 'border-border hover:bg-muted'}`}
+                    >
+                      <p className="text-xs font-bold text-foreground">Orange Money</p>
+                      <p className="text-[10px] text-muted-foreground">{ADMIN_ORANGE}</p>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <FileUploadField
+                      label="Capture du paiement"
+                      value={paymentProof}
+                      onChange={(val) => { setPaymentProof(val); if (val) setPaymentReference('') }}
+                      accept="image/*"
+                      maxSizeMB={10}
+                    />
+
+                    <Input
+                      label="Réf / ID Transaction"
+                      value={paymentReference}
+                      onChange={e => setPaymentReference(e.target.value)}
+                      placeholder="Ex: TXN123456"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Visit Schedule */}
+            <div className="pt-2 border-t border-border space-y-3">
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-primary" /> Planifier la date & heure de visite
+              </h3>
+
+              <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground">Date souhaitée *</label>
                   <Input
@@ -256,21 +341,35 @@ export function VisitPaymentForm({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Notes (optionnel)</label>
+                <label className="text-xs font-semibold text-foreground">Précisions pour le bailleur (optionnel)</label>
                 <textarea
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  placeholder="Informations supplémentaires, demande particulière..."
-                  className="w-full px-3 py-2 rounded-xl bg-muted border border-border focus:border-primary focus:outline-none text-xs text-foreground resize-none"
-                  rows={3}
+                  placeholder="Ex: Je viendrai avec un colocataire, disponible après 14h..."
+                  className="w-full px-3 py-2 rounded-xl bg-card border border-border focus:border-primary focus:outline-none text-xs text-foreground resize-none"
+                  rows={2}
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end pt-2">
-              <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
-              <Button type="submit" disabled={processing} className="bg-primary text-white">
-                {processing ? 'Traitement...' : 'Confirmer la demande'}
+            <div className="flex gap-2.5 justify-end pt-2">
+              <Button type="button" variant="ghost" onClick={onClose} className="text-xs">
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={processing}
+                className="bg-gradient-to-r from-amber-500 via-primary to-amber-600 hover:opacity-95 text-black font-extrabold text-xs shadow-xl shadow-primary/25 rounded-xl"
+              >
+                {processing ? (
+                  'Redirection...'
+                ) : checkoutType === 'maketou' ? (
+                  <>
+                    <Zap className="w-3.5 h-3.5 fill-current" /> Payer {formatPrice(pkg.price)} via Maketou
+                  </>
+                ) : (
+                  'Confirmer la demande'
+                )}
               </Button>
             </div>
           </form>
