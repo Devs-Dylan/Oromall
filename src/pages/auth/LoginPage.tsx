@@ -247,13 +247,13 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* Lien Administrateur */}
+            {/* Lien Administrateur & Associé */}
             <div className="text-center pt-1">
               <Link
                 to="/admin/login"
-                className="text-muted-foreground hover:text-foreground text-xs inline-flex items-center gap-1.5 py-1 px-3 rounded-lg hover:bg-muted transition-colors font-medium"
+                className="text-muted-foreground hover:text-foreground text-xs inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-xl hover:bg-muted/80 transition-colors font-semibold border border-border/50"
               >
-                <Shield className="w-3.5 h-3.5 text-amber-500" /> Console d'administration
+                <Shield className="w-3.5 h-3.5 text-amber-500" /> Accès Administrateur & Comptes Associés
               </Link>
             </div>
           </div>

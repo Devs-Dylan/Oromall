@@ -22,6 +22,8 @@ export interface ButtonCustomization {
 
 export const DEFAULT_TABS: NavTabCustomization[] = [
   { id: 'kpis', label: '📊 Super-Vision', visible: true },
+  { id: 'associate_submissions', label: '📥 Soumissions Associés', visible: true },
+  { id: 'associates_management', label: '🤝 Gestion Associés', visible: true },
   { id: 'commissions', label: '💵 Commissions Vendeurs (2%)', visible: true },
   { id: 'subscriptions', label: '💳 Abonnements Boutiques', visible: true },
   { id: 'ads', label: '📣 Régie Publicités', visible: true },

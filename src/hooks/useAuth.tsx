@@ -7,6 +7,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   loginAsAdmin: (pin: string) => Promise<void>
+  loginAsAssociate: (email: string, password: string) => Promise<User>
   register: (
     name: string,
     email: string,
@@ -24,6 +25,7 @@ interface AuthContextType {
   setRole: (role: AccountType) => void
   isAdmin: () => boolean
   isSeller: () => boolean
+  isAssociate: () => boolean
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -155,11 +157,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveUser({ ...user, account_type: role })
   }, [user])
 
+  const loginAsAssociate = useCallback(async (email: string, password: string) => {
+    setIsLoading(true)
+    await new Promise(r => setTimeout(r, 600))
+    const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
+    const found = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
+    if (!found || found.password !== password) {
+      setIsLoading(false)
+      throw new Error('Identifiants Associé incorrects')
+    }
+    if (found.role !== 'associate' && found.role !== 'admin') {
+      setIsLoading(false)
+      throw new Error('Ce compte n\'est pas habilité comme Associé / Agent.')
+    }
+    if (found.is_banned) {
+      setIsLoading(false)
+      throw new Error('Ce compte Associé est actuellement suspendu par l\'administrateur.')
+    }
+    saveUser(found)
+    setIsLoading(false)
+    return found
+  }, [])
+
   const isAdmin = useCallback(() => user?.role === 'admin', [user])
   const isSeller = useCallback(() => user?.account_type === 'seller' || user?.role === 'admin', [user])
+  const isAssociate = useCallback(() => user?.role === 'associate' || user?.role === 'admin', [user])
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginAsAdmin, register, loginWithProvider, logout, updateUser, setRole, isAdmin, isSeller }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginAsAdmin, loginAsAssociate, register, loginWithProvider, logout, updateUser, setRole, isAdmin, isSeller, isAssociate }}>
       {children}
     </AuthContext.Provider>
   )

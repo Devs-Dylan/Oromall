@@ -538,6 +538,70 @@ if (getStore<Order>('mp_orders').length === 0) {
   }
 }
 
+// ===== Seed Default Associate Account =====
+const existingUsers = getStore<User>('mp_users')
+if (!existingUsers.some(u => u.role === 'associate' || u.email === 'associe@oromall.cm')) {
+  const defaultAssociate: User = {
+    id: 'associe-1',
+    name: 'Marc - Agent Bastos & Ngoa-Ekellé',
+    email: 'associe@oromall.cm',
+    password: 'Associe2026@',
+    phone: '699112233',
+    role: 'associate',
+    account_type: 'client',
+    created_date: now(),
+    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'
+  }
+  setStore<User>('mp_users', [...existingUsers, defaultAssociate])
+}
+
+// ===== Seed Demo Pending Associate Housing Submission =====
+const existingHousings = getStore<Housing>('mp_housing')
+if (!existingHousings.some(h => h.status === 'pending_review')) {
+  const pendingSubmission: Housing = {
+    id: 'house-assoc-1',
+    title: 'Studio Moderne Meublé avec Groupe & Forage - Proche Campus Bastos',
+    description: 'Studio ultra moderne récemment construit, entièrement équipé avec climatisation, forage d\'eau potable 24h/24 et groupe électrogène automatique. Idéal étudiant ou jeune cadre.',
+    category: 'studio',
+    property_type: 'residential',
+    price: 95000,
+    price_type: 'month',
+    price_negotiable: false,
+    deposit_amount: 190000,
+    payment_frequency: 'monthly',
+    city: 'Yaoundé',
+    neighborhood: 'Bastos',
+    address: 'Carrefour Bastos, face École Américaine',
+    latitude: 3.892,
+    longitude: 11.512,
+    surface_sqm: 38,
+    bedrooms: 1,
+    bathrooms: 1,
+    living_rooms: 1,
+    kitchens: 1,
+    furnished: true,
+    air_conditioning: true,
+    water_source: 'borehole',
+    electricity_source: 'generator',
+    internet_available: true,
+    security_24h: true,
+    amenities: ['wifi', 'eau_gratuite', 'groupe_electrogene', 'gardien', 'climatisation', 'salon_meuble'],
+    images: [
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&auto=format&fit=crop&q=80',
+    ],
+    image_url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&auto=format&fit=crop&q=80',
+    owner_name: 'Bailleur M. Ondoa (Vérifié par Marc)',
+    whatsapp_number: '237690112233',
+    status: 'pending_review',
+    submitted_by_associate_id: 'associe-1',
+    submitted_by_associate_name: 'Marc - Agent Bastos & Ngoa-Ekellé',
+    created_date: now(),
+    updated_date: now(),
+  }
+  setStore<Housing>('mp_housing', [pendingSubmission, ...existingHousings])
+}
+
 // ===== Helpers =====
 export function clearAllHousings() {
   localStorage.setItem('mp_housing', '[]')

@@ -29,6 +29,7 @@ const SellerDashboard = lazy(() => import('@/pages/seller/SellerDashboard'))
 const SellerOnboardingPage = lazy(() => import('@/pages/seller/SellerOnboardingPage'))
 
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'))
+const AssociateDashboardPage = lazy(() => import('@/pages/associate/AssociateDashboardPage'))
 const ProjectExplorer = lazy(() => import('@/pages/project/ProjectExplorer'))
 const CustomerAvailabilityPage = lazy(() => import('@/pages/customer/CustomerAvailabilityPage'))
 const ProfilePage = lazy(() => import('@/pages/customer/ProfilePage'))
@@ -108,6 +109,13 @@ export default function App() {
           <Route path="/seller/onboarding" element={
             <ProtectedRoute>
               <SellerOnboardingPage />
+            </ProtectedRoute>
+          } />
+
+          {/* Associate routes */}
+          <Route path="/associate" element={
+            <ProtectedRoute requireAssociate>
+              <AssociateDashboardPage />
             </ProtectedRoute>
           } />
 

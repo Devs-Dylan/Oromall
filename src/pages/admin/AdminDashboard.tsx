@@ -24,6 +24,8 @@ import { AdminSettingsTab } from '@/components/admin/AdminSettingsTab'
 import { AdminVisitRequestsTab } from '@/components/admin/AdminVisitRequestsTab'
 import { AdminPowerHubTab } from '@/components/admin/AdminPowerHubTab'
 import { AdminAdsTab } from '@/components/admin/AdminAdsTab'
+import { AdminAssociateSubmissionsTab } from '@/components/admin/AdminAssociateSubmissionsTab'
+import { AdminAssociatesTab } from '@/components/admin/AdminAssociatesTab'
 import { AdminUiCustomizerTab, DEFAULT_TABS, type NavTabCustomization } from '@/components/admin/AdminUiCustomizerTab'
 
 export default function AdminDashboard() {
@@ -145,6 +147,18 @@ export default function AdminDashboard() {
           {activeTab === 'ads' && (
             <ErrorBoundary fallbackTitle="Erreur dans l'onglet Publicités">
               <AdminAdsTab ads={ads} onRefresh={refreshData} />
+            </ErrorBoundary>
+          )}
+
+          {activeTab === 'associate_submissions' && (
+            <ErrorBoundary fallbackTitle="Erreur dans l'onglet Soumissions Associés">
+              <AdminAssociateSubmissionsTab />
+            </ErrorBoundary>
+          )}
+
+          {activeTab === 'associates_management' && (
+            <ErrorBoundary fallbackTitle="Erreur dans l'onglet Gestion Associés">
+              <AdminAssociatesTab />
             </ErrorBoundary>
           )}
 

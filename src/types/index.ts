@@ -10,11 +10,11 @@ export type WithdrawalStatus = 'pending' | 'verified' | 'completed'
 export type SubscriptionStatus = 'active' | 'expiring' | 'expired' | 'suspended'
 export type ActivationStatus = 'pending' | 'verified' | 'rejected'
 export type HousingCategory = 'studio' | 'appartement' | 'chambre' | 'villa' | 'duplex'
-export type HousingStatus = 'available' | 'rented' | 'reserved' | 'active'
+export type HousingStatus = 'available' | 'rented' | 'reserved' | 'active' | 'pending_review' | 'rejected'
 export type HousingPriceType = 'month' | 'day'
 export type PaymentMethod = 'mtn' | 'orange'
 export type AccountType = 'client' | 'seller' | 'buyer'
-export type UserRole = 'user' | 'admin'
+export type UserRole = 'user' | 'admin' | 'associate'
 
 export interface User {
   id: string
@@ -145,6 +145,9 @@ export interface Housing {
   nearby_markets?: boolean
   public_transport_access?: boolean
   status: HousingStatus
+  submitted_by_associate_id?: string
+  submitted_by_associate_name?: string
+  rejection_reason?: string
   rating?: number
   reviews_count?: number
   created_date: string

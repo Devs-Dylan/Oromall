@@ -24,7 +24,7 @@ const HOUSING_CATEGORIES: { key: HousingCategory | 'all'; label: string }[] = [
 const CITIES = ['Toutes', 'Yaoundé', 'Douala', 'Buea', 'Bafoussam', 'Dschang', 'Ambam']
 
 export default function HousingCatalogPage() {
-  const housings = HousingAPI.list()
+  const housings = (HousingAPI.list() || []).filter(h => h.status !== 'pending_review' && h.status !== 'rejected')
   const { isHousingFavorite, toggleHousingFavorite } = useWishlist()
   const { requireAuth, authModalOpen, closeAuthModal, modalMeta } = useRequireAuth()
   const navigate = useNavigate()

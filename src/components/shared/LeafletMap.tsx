@@ -85,48 +85,72 @@ export default function LeafletMap({
     if (map && markerGroup) {
       const bounds = L.latLngBounds([])
 
-      // 1. Render Reference Point Marker (🎯 Point de repère sélectionné par l'utilisateur)
+      // 1. Render Reference Point / GPS User Marker (🎯 Point de repère ou 📍 Position GPS)
       if (referencePoint && referencePoint.latitude && referencePoint.longitude) {
+        const isGps = referencePoint.label?.toLowerCase().includes('position') || referencePoint.label?.toLowerCase().includes('gps') || (referencePoint as any).source === 'gps'
+        
+        const bgColor = isGps ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'linear-gradient(135deg, #f59e0b, #d97706)'
+        const textColor = isGps ? '#ffffff' : '#000000'
+        const pulseColor = isGps ? 'rgba(37, 99, 235, 0.5)' : 'rgba(245, 158, 11, 0.5)'
+        const iconEmoji = isGps ? '📍' : '🎯'
+
         const refIcon = L.divIcon({
           className: 'reference-point-marker',
           html: `
-            <div style="
-              background: linear-gradient(135deg, #f59e0b, #d97706);
-              color: #000;
-              padding: 6px 12px;
-              border-radius: 24px;
-              font-size: 11px;
-              font-weight: 900;
-              display: flex;
-              align-items: center;
-              gap: 5px;
-              box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.4), 0 4px 14px rgba(0,0,0,0.4);
-              border: 2px solid white;
-              white-space: nowrap;
-              cursor: grab;
-            ">
-              <span>🎯</span>
-              <span>${referencePoint.label || 'Point de Repère'}</span>
+            <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
+              <!-- Radar Pulse Ring -->
+              <div style="
+                position: absolute;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: ${pulseColor};
+                animation: pulse 1.8s ease-in-out infinite;
+                z-index: 1;
+              "></div>
+              
+              <!-- Core Badge -->
+              <div style="
+                position: relative;
+                z-index: 2;
+                background: ${bgColor};
+                color: ${textColor};
+                padding: 6px 12px;
+                border-radius: 24px;
+                font-size: 11px;
+                font-weight: 900;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                box-shadow: 0 0 0 3px #ffffff, 0 6px 16px rgba(0,0,0,0.45);
+                border: 2px solid ${isGps ? '#93c5fd' : '#fef08a'};
+                white-space: nowrap;
+              ">
+                <span style="font-size: 13px;">${iconEmoji}</span>
+                <span>${referencePoint.label || (isGps ? 'Ma Position' : 'Point de Repère')}</span>
+              </div>
             </div>
           `,
-          iconSize: [140, 34],
-          iconAnchor: [70, 17]
+          iconSize: [150, 36],
+          iconAnchor: [75, 18]
         })
 
         const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${referencePoint.latitude},${referencePoint.longitude}`
         const osmUrl = `https://www.openstreetmap.org/?mlat=${referencePoint.latitude}&mlon=${referencePoint.longitude}#map=16/${referencePoint.latitude}/${referencePoint.longitude}`
 
-        const refMarker = L.marker([referencePoint.latitude, referencePoint.longitude], { icon: refIcon })
+        const refMarker = L.marker([referencePoint.latitude, referencePoint.longitude], { icon: refIcon, zIndexOffset: 1000 })
         refMarker.bindPopup(`
           <div style="font-family: system-ui, sans-serif; padding: 6px; text-align: center; max-width: 240px;">
-            <p style="margin: 0; font-weight: 900; font-size: 13px; color: #b45309;">🎯 Point de Repère Actif</p>
+            <p style="margin: 0; font-weight: 900; font-size: 13px; color: ${isGps ? '#2563eb' : '#b45309'};">
+              ${isGps ? '📍 Votre Position Détectée' : '🎯 Point de Repère Actif'}
+            </p>
             <p style="margin: 4px 0 2px 0; font-weight: 700; font-size: 12px; color: #111;">${referencePoint.label}</p>
-            <p style="margin: 0 0 6px 0; font-size: 10px; color: #666;">GPS Réel : ${referencePoint.latitude}, ${referencePoint.longitude}</p>
+            <p style="margin: 0 0 6px 0; font-size: 10px; color: #666;">Coordonnées : ${referencePoint.latitude}, ${referencePoint.longitude}</p>
             
             ${referencePoint.website ? `<a href="${referencePoint.website}" target="_blank" rel="noopener noreferrer" style="display: block; margin-bottom: 6px; color: #2563eb; font-size: 11px; text-decoration: underline; font-weight: bold;">🌐 Site Officiel (${referencePoint.website.replace('https://', '')})</a>` : ''}
 
             <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
-              <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background: #ea4335; color: white; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold;">🗺️ Vérifier sur Google Maps</a>
+              <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background: #ea4335; color: white; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold;">🗺️ Ouvrir Google Maps</a>
               <a href="${osmUrl}" target="_blank" rel="noopener noreferrer" style="display: block; background: #7092BF; color: white; padding: 4px 10px; border-radius: 6px; text-decoration: none; font-size: 10px; font-weight: bold;">🌐 Ouvrir OpenStreetMap</a>
             </div>
           </div>
