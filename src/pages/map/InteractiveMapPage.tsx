@@ -437,23 +437,56 @@ export default function InteractiveMapPage() {
           </div>
         </div>
 
-        {/* Indicateur de repère et slider de rayon */}
+        {/* Indicateur de repère et slider de rayon à partir de 100 m */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50 text-xs">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="font-bold text-foreground">🎯 Repère actif :</span>
-            <span className="font-semibold text-primary">{referencePoint.label}</span>
+          <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+            <span className="font-bold text-foreground shrink-0">🎯 Repère actif :</span>
+            <span className="font-semibold text-primary truncate">{referencePoint.label}</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-muted-foreground">Rayon max : <strong className="text-primary">{maxDistanceKm} km</strong></span>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              value={maxDistanceKm}
-              onChange={e => setMaxDistanceKm(Number(e.target.value))}
-              className="w-28 accent-primary cursor-pointer"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Quick Radius Pills */}
+            <div className="flex items-center gap-1 bg-muted/70 p-0.5 rounded-xl border border-border/60">
+              {[
+                { val: 0.1, label: '100 m' },
+                { val: 0.5, label: '500 m' },
+                { val: 1, label: '1 km' },
+                { val: 2, label: '2 km' },
+                { val: 5, label: '5 km' },
+                { val: 10, label: '10 km' },
+                { val: 20, label: '20 km' },
+              ].map(pill => (
+                <button
+                  key={pill.val}
+                  type="button"
+                  onClick={() => setMaxDistanceKm(pill.val)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all",
+                    maxDistanceKm === pill.val
+                      ? "bg-primary text-black shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 pl-1">
+              <span className="text-muted-foreground text-[11px]">
+                Rayon : <strong className="text-primary">{maxDistanceKm < 1 ? `${Math.round(maxDistanceKm * 1000)} m` : `${maxDistanceKm} km`}</strong>
+              </span>
+              <input
+                type="range"
+                min="0.1"
+                max="50"
+                step="0.1"
+                value={maxDistanceKm}
+                onChange={e => setMaxDistanceKm(Number(e.target.value))}
+                className="w-24 accent-primary cursor-pointer"
+                title={`Rayon : ${maxDistanceKm < 1 ? `${Math.round(maxDistanceKm * 1000)} m` : `${maxDistanceKm} km`}`}
+              />
+            </div>
           </div>
         </div>
       </div>

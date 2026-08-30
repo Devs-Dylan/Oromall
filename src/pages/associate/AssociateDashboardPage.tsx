@@ -78,23 +78,26 @@ export default function AssociateDashboardPage() {
 
   const handleCreateHousingSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !neighborhood.trim() || !ownerName.trim() || !whatsappNumber.trim()) {
-      toastError('Veuillez remplir tous les champs obligatoires (*).')
+    if (!title.trim() || !neighborhood.trim()) {
+      toastError('Veuillez renseigner au moins le titre et le quartier du logement.')
       return
     }
 
-    if (images.length === 0) {
-      toastError('Veuillez ajouter au moins une photo du logement.')
-      return
-    }
+    const finalImages = images.length > 0 ? images : [
+      category === 'chambre'
+        ? 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=800&auto=format&fit=crop&q=75'
+        : category === 'studio'
+          ? 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=75'
+          : 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=75'
+    ]
 
     const newHousing: Housing = {
       id: `house-${generateId().slice(0, 8)}`,
       title: title.trim(),
-      description: description.trim() || `Logement vérifié par l'agent ${user?.name || 'Associé'}.`,
+      description: description.trim() || `Logement recensé et vérifié par l'agent associé ${user?.name || ''}.`,
       category,
       property_type: 'residential',
-      price: Number(price),
+      price: Number(price) || 25000,
       price_type: priceType,
       price_negotiable: false,
       deposit_amount: Number(depositAmount) || 0,
@@ -102,8 +105,8 @@ export default function AssociateDashboardPage() {
       city,
       neighborhood: neighborhood.trim(),
       address: address.trim() || undefined,
-      latitude: Number(latitude),
-      longitude: Number(longitude),
+      latitude: Number(latitude) || 3.868,
+      longitude: Number(longitude) || 11.521,
       surface_sqm: Number(surfaceSqm) || 25,
       bedrooms: Number(bedrooms) || 1,
       bathrooms: Number(bathrooms) || 1,
@@ -116,11 +119,11 @@ export default function AssociateDashboardPage() {
       security_24h: amenities.includes('gardien'),
       internet_available: amenities.includes('wifi'),
       amenities,
-      images,
-      image_url: images[0],
-      owner_name: ownerName.trim(),
+      images: finalImages,
+      image_url: finalImages[0],
+      owner_name: ownerName.trim() || `Bailleur ${neighborhood.trim()}`,
       owner_phone: ownerPhone.trim() || undefined,
-      whatsapp_number: whatsappNumber.trim().replace(/\s+/g, ''),
+      whatsapp_number: (whatsappNumber.trim() || '237690000000').replace(/\s+/g, ''),
       status: 'pending_review',
       submitted_by_associate_id: user?.id,
       submitted_by_associate_name: user?.name,
@@ -133,12 +136,12 @@ export default function AssociateDashboardPage() {
     AuditLogAPI.create({
       timestamp: new Date().toISOString(),
       admin_name: user?.name || 'Associé',
-      action: `Soumission nouveau logement : ${newHousing.title}`,
+      action: `Soumission logement : ${newHousing.title}`,
       details: `En attente de validation administrative. Quartier : ${newHousing.neighborhood} (${newHousing.city})`,
       severity: 'info'
     })
 
-    toastSuccess('Logement soumis avec succès ! 🚀', 'Votre annonce a été transmise à l\'administrateur pour validation.')
+    toastSuccess('Logement soumis avec succès ! 🚀', 'Transmis à l\'administrateur pour validation dans l\'onglet Soumissions.')
     setCreateModalOpen(false)
     
     // Reset form
@@ -552,10 +555,23 @@ export default function AssociateDashboardPage() {
 
           {/* Photos Upload */}
           <div className="space-y-1 pt-1">
-            <label className="font-bold text-foreground block">Photos réelles du logement (Min 1 photo) * :</label>
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-foreground block">Photos du logement :</label>
+              <button
+                type="button"
+                onClick={() => setImages([
+                  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1000&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1000&auto=format&fit=crop&q=80'
+                ])}
+                className="text-[10px] text-emerald-400 hover:underline font-bold"
+              >
+                + Utiliser 3 photos modèles HD
+              </button>
+            </div>
             <MultiImageUploadField
               label="Sélectionnez ou collez des URLs de photos"
-              value={images}
+              images={images}
               onChange={setImages}
             />
           </div>

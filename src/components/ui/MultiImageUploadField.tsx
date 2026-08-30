@@ -5,14 +5,16 @@ import { Button } from '@/components/ui/Button'
 
 interface MultiImageUploadFieldProps {
   label: string
-  images: string[]
+  images?: string[]
+  value?: string[]
   onChange: (images: string[]) => void
   maxImages?: number
   placeholder?: string
   className?: string
 }
 
-export function MultiImageUploadField({ label, images, onChange, maxImages = 4, placeholder = 'Importer depuis votre galerie...', className }: MultiImageUploadFieldProps) {
+export function MultiImageUploadField({ label, images: imagesProp, value: valueProp, onChange, maxImages = 4, placeholder = 'Importer depuis votre galerie...', className }: MultiImageUploadFieldProps) {
+  const images = imagesProp || valueProp || []
   const [mode, setMode] = useState<'local' | 'url'>('local')
   const [urlInput, setUrlInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)

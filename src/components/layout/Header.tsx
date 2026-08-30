@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingBag, Store, User, LogOut, Settings, LayoutDashboard,
   Menu, X, Moon, Sun, ShoppingCart, Heart, Users,
-  Shield, Handshake, HelpCircle, Download, Home, Map, ChevronDown
+  Shield, Handshake, HelpCircle, Download, Home, Map, ChevronDown, CheckCircle2
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCart } from '@/hooks/useCart'
@@ -12,13 +12,14 @@ import { cn } from '@/lib/utils'
 import { SmartSearchBar } from '@/components/shared/SmartSearchBar'
 
 export default function Header() {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, isAdmin, isAssociate } = useAuth()
   const { count } = useCart()
   const { totalCount: wishCount } = useWishlist()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
   const [dark, setDark] = useState(() => localStorage.getItem('mp_dark') === '1')
   const [scrolled, setScrolled] = useState(false)
   const [announcement, setAnnouncement] = useState(() => localStorage.getItem('mp_announcement') || 'OroMall : Achetez et louez en toute sérénité au Cameroun avec paiement Mobile Money sécurisé.')
@@ -32,6 +33,17 @@ export default function Header() {
     const handler = () => setScrolled(window.scrollY > 15)
     window.addEventListener('scroll', handler)
     return () => window.removeEventListener('scroll', handler)
+  }, [])
+
+  // Close menus on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   // Close menus on route change
@@ -186,28 +198,62 @@ export default function Header() {
 
             {/* User Account Menu / Auth */}
             {user ? (
-              <div className="relative">
+              <div className="relative" ref={userMenuRef}>
                 <button
+                  type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border border-border hover:bg-muted transition-colors text-xs font-semibold text-foreground"
+                  className={cn(
+                    "flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border transition-all text-xs font-semibold",
+                    userMenuOpen
+                      ? "border-primary bg-primary/10 text-primary shadow-sm"
+                      : "border-border hover:bg-muted text-foreground"
+                  )}
                 >
-                  <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <span className="hidden sm:inline-block max-w-[90px] truncate">{user.name}</span>
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform duration-200", userMenuOpen && "rotate-180 text-primary")} />
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-card border border-border shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
-                    <div className="px-4 py-2 border-b border-border/60">
+                  <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-card border border-border shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
+                    <div className="px-4 py-2.5 border-b border-border/60">
                       <p className="font-bold text-foreground truncate">{user.name}</p>
                       <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+                      <div className="mt-1.5">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-md text-[10px] font-bold inline-block",
+                          user.role === 'admin' && "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+                          user.role === 'associate' && "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+                          user.role !== 'admin' && user.role !== 'associate' && (user.account_type === 'seller' ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-muted text-muted-foreground")
+                        )}>
+                          {user.role === 'admin'
+                            ? '🛡️ Super-Admin'
+                            : user.role === 'associate'
+                              ? '🤝 Associé / Agent'
+                              : user.account_type === 'seller'
+                                ? '🏬 Vendeur / Bailleur'
+                                : '🛍️ Client OroMall'}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="py-1">
+                      {/* Espace Associé si habilité */}
+                      {(user.role === 'associate' || isAdmin()) && (
+                        <Link
+                          to="/associate"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-emerald-500 font-extrabold hover:bg-emerald-500/10 transition-colors"
+                        >
+                          <Users className="w-3.5 h-3.5" /> Espace Associé (Logements)
+                        </Link>
+                      )}
+
                       <Link
                         to="/profile"
+                        onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-foreground font-bold hover:bg-muted transition-colors"
                       >
                         <User className="w-3.5 h-3.5 text-primary" /> Mon Profil & Fidélité
@@ -215,6 +261,7 @@ export default function Header() {
 
                       <Link
                         to="/orders"
+                        onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors"
                       >
                         <ShoppingBag className="w-3.5 h-3.5 text-primary" /> Mes Commandes & Visites
@@ -223,6 +270,7 @@ export default function Header() {
                       {user.account_type === 'seller' ? (
                         <Link
                           to="/seller"
+                          onClick={() => setUserMenuOpen(false)}
                           className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors"
                         >
                           <LayoutDashboard className="w-3.5 h-3.5 text-primary" /> Dashboard Vendeur
@@ -230,6 +278,7 @@ export default function Header() {
                       ) : (
                         <Link
                           to="/seller/onboarding"
+                          onClick={() => setUserMenuOpen(false)}
                           className="flex items-center gap-2 px-4 py-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold transition-colors"
                         >
                           <Store className="w-3.5 h-3.5" /> Devenir Vendeur / Bailleur
@@ -239,6 +288,7 @@ export default function Header() {
                       {isAdmin() && (
                         <Link
                           to="/admin"
+                          onClick={() => setUserMenuOpen(false)}
                           className="flex items-center gap-2 px-4 py-2 text-primary hover:bg-primary/10 font-bold transition-colors"
                         >
                           <Shield className="w-3.5 h-3.5" /> Console Super-Admin
@@ -248,7 +298,7 @@ export default function Header() {
 
                     <div className="border-t border-border/60 pt-1">
                       <button
-                        onClick={() => { logout(); navigate('/') }}
+                        onClick={() => { setUserMenuOpen(false); logout(); navigate('/') }}
                         className="flex items-center gap-2 w-full px-4 py-2 text-red-500 hover:bg-red-500/10 font-medium transition-colors text-left"
                       >
                         <LogOut className="w-3.5 h-3.5" /> Déconnexion
@@ -308,6 +358,29 @@ export default function Header() {
               </Link>
             ))}
 
+            {/* Role quick links in Mobile Drawer */}
+            {(user?.role === 'associate' || isAdmin()) && (
+              <Link
+                to="/associate"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+              >
+                <Users className="w-4 h-4" />
+                <span>Espace Associé (Enregistrer Logements)</span>
+              </Link>
+            )}
+
+            {isAdmin() && (
+              <Link
+                to="/admin"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-black text-primary bg-primary/10 border border-primary/20"
+              >
+                <Shield className="w-4 h-4" />
+                <span>Console Super-Admin</span>
+              </Link>
+            )}
+
             {/* Theme & User Profile quick access in Mobile Drawer */}
             <div className="pt-2 border-t border-border flex items-center justify-between">
               <button
@@ -318,13 +391,22 @@ export default function Header() {
                 <span>{dark ? 'Mode Clair ☀️' : 'Mode Sombre 🌙'}</span>
               </button>
 
-              {user && (
+              {user ? (
                 <Link
                   to="/profile"
+                  onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10"
                 >
                   <User className="w-4 h-4" />
                   <span>Mon Profil ({user.name.split(' ')[0]})</span>
+                </Link>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white bg-primary"
+                >
+                  <span>Connexion</span>
                 </Link>
               )}
             </div>
