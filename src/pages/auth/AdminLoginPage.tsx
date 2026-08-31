@@ -132,6 +132,16 @@ export default function AdminLoginPage() {
               autoFocus
             />
 
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPin('Tecnodylan14@')}
+                className="text-[11px] text-amber-500 hover:underline font-bold"
+              >
+                ⚡ Remplir code PIN Propriétaire
+              </button>
+            </div>
+
             <Button
               type="submit"
               loading={loading}
@@ -163,6 +173,16 @@ export default function AdminLoginPage() {
               onChange={e => setAssociatePassword(e.target.value)}
               leftIcon={<Lock className="w-4 h-4 text-muted-foreground" />}
             />
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setAssociateEmail('associe@oromall.cm'); setAssociatePassword('Associe2026@'); }}
+                className="text-[11px] text-emerald-400 hover:underline font-bold"
+              >
+                ⚡ Remplir compte Associé Démo
+              </button>
+            </div>
 
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-400 space-y-1">
               <p className="font-bold flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Rôle d'agent recenseur :</p>

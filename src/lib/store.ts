@@ -538,10 +538,27 @@ if (getStore<Order>('mp_orders').length === 0) {
   }
 }
 
-// ===== Seed Default Associate Account =====
-const existingUsers = getStore<User>('mp_users')
-if (!existingUsers.some(u => u.role === 'associate' || u.email === 'associe@oromall.cm')) {
-  const defaultAssociate: User = {
+// ===== Seed Default Accounts for All 4 Roles =====
+let usersList = getStore<User>('mp_users')
+
+// 1. Super-Admin
+if (!usersList.some(u => u.role === 'admin' || u.email === 'admin@oromall.cm')) {
+  usersList.push({
+    id: 'admin-main',
+    name: 'Super Administrateur',
+    email: 'admin@oromall.cm',
+    password: 'Tecnodylan14@',
+    phone: '699000000',
+    role: 'admin',
+    account_type: 'seller',
+    created_date: now(),
+    avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120'
+  })
+}
+
+// 2. Associé Terrain
+if (!usersList.some(u => u.role === 'associate' || u.email === 'associe@oromall.cm')) {
+  usersList.push({
     id: 'associe-1',
     name: 'Marc - Agent Bastos & Ngoa-Ekellé',
     email: 'associe@oromall.cm',
@@ -551,9 +568,40 @@ if (!existingUsers.some(u => u.role === 'associate' || u.email === 'associe@orom
     account_type: 'client',
     created_date: now(),
     avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'
-  }
-  setStore<User>('mp_users', [...existingUsers, defaultAssociate])
+  })
 }
+
+// 3. Vendeur / Bailleur
+if (!usersList.some(u => u.email === 'vendeur@oromall.cm')) {
+  usersList.push({
+    id: 'seller-demo',
+    name: 'Jean-Paul - Boutique TechCam & Bailleur',
+    email: 'vendeur@oromall.cm',
+    password: 'Vendeur2026@',
+    phone: '699223344',
+    role: 'user',
+    account_type: 'seller',
+    created_date: now(),
+    avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120'
+  })
+}
+
+// 4. Client Acheteur
+if (!usersList.some(u => u.email === 'client@oromall.cm')) {
+  usersList.push({
+    id: 'client-demo',
+    name: 'Chantal - Étudiante Yaoundé',
+    email: 'client@oromall.cm',
+    password: 'Client2026@',
+    phone: '699445566',
+    role: 'user',
+    account_type: 'client',
+    created_date: now(),
+    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120'
+  })
+}
+
+setStore<User>('mp_users', usersList)
 
 // ===== Seed Demo Pending Associate Housing Submission =====
 const existingHousings = getStore<Housing>('mp_housing')
