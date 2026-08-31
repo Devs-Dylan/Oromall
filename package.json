@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "server": "node server/server.mjs",
+    "start": "node server/server.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^16.6.0",

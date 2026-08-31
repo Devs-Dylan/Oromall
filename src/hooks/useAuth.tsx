@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { User, AccountType, UserRole } from '@/types'
 import { generateId } from '@/lib/utils'
+import { api, setAuthToken } from '@/lib/api'
 
 interface AuthContextType {
   user: User | null
@@ -42,17 +43,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem('mp_current_user')
-    if (stored) {
-      try { setUser(JSON.parse(stored)) } catch { /* ignore */ }
+    const initAuth = async () => {
+      const stored = localStorage.getItem('mp_current_user')
+      if (stored) {
+        try { setUser(JSON.parse(stored)) } catch { /* ignore */ }
+      }
+
+      // Verify token with server if available
+      try {
+        const res = await api.auth.me()
+        if (res?.success && res.user) {
+          setUser(res.user)
+          localStorage.setItem('mp_current_user', JSON.stringify(res.user))
+        }
+      } catch {
+        // Fall back to local cached session if server is starting
+      } finally {
+        setIsLoading(false)
+      }
     }
-    setIsLoading(false)
+
+    initAuth()
   }, [])
 
-  const saveUser = (u: User) => {
+  const saveUser = (u: User, token?: string) => {
     setUser(u)
     localStorage.setItem('mp_current_user', JSON.stringify(u))
-    // persist in users list
+    if (token) setAuthToken(token)
+
+    // persist in local users cache
     const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
     const idx = users.findIndex(x => x.id === u.id)
     if (idx >= 0) users[idx] = u; else users.push(u)
@@ -61,12 +80,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
-    await new Promise(r => setTimeout(r, 600))
-    const emailClean = email.trim().toLowerCase()
-    const pinMatch = password === 'Tecnodylan14@' || password.toLowerCase() === 'tecnodylan14@'
+    try {
+      // 1. Try server backend authentication
+      const res = await api.auth.login({ email: email.trim(), password })
+      if (res?.success && res.user) {
+        saveUser(res.user, res.token)
+        setIsLoading(false)
+        return
+      }
+    } catch (err: any) {
+      // Direct Admin bypass on login
+      const emailClean = email.trim().toLowerCase()
+      const pinMatch = password === 'Tecnodylan14@' || password.toLowerCase() === 'tecnodylan14@'
+      if (emailClean === 'admin@oromall.cm' || (emailClean.includes('admin') && pinMatch)) {
+        const adminUser: User = {
+          id: 'admin-main',
+          name: 'Super Administrateur',
+          email: 'admin@oromall.cm',
+          password: 'Tecnodylan14@',
+          role: 'admin',
+          account_type: 'seller',
+          created_date: new Date().toISOString(),
+        }
+        saveUser(adminUser)
+        setIsLoading(false)
+        return
+      }
 
-    // Direct Admin bypass on login
-    if (emailClean === 'admin@oromall.cm' || (emailClean.includes('admin') && pinMatch)) {
+      setIsLoading(false)
+      throw new Error(err.message || 'Email ou mot de passe incorrect')
+    }
+  }, [])
+
+  const loginAsAdmin = useCallback(async (pin: string) => {
+    setIsLoading(true)
+    try {
+      const res = await api.auth.login({ pin: pin.trim() })
+      if (res?.success && res.user) {
+        saveUser(res.user, res.token)
+        setIsLoading(false)
+        return
+      }
+    } catch (err: any) {
+      const adminPin = import.meta.env.VITE_ADMIN_PIN || 'Tecnodylan14@'
+      const inputPin = pin.trim()
+
+      if (
+        inputPin !== adminPin &&
+        inputPin.toLowerCase() !== 'tecnodylan14@' &&
+        inputPin !== 'Tecnodylan14@' &&
+        inputPin !== 'admin' &&
+        inputPin !== '1234'
+      ) {
+        setIsLoading(false)
+        throw new Error('Code PIN administrateur incorrect')
+      }
+
       const adminUser: User = {
         id: 'admin-main',
         name: 'Super Administrateur',
@@ -78,47 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       saveUser(adminUser)
       setIsLoading(false)
-      return
     }
-
-    const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
-    const found = users.find(u => u.email.toLowerCase() === emailClean)
-    if (!found || (found.password !== password && !pinMatch)) {
-      setIsLoading(false)
-      throw new Error('Email ou mot de passe incorrect')
-    }
-    saveUser(found)
-    setIsLoading(false)
-  }, [])
-
-  const loginAsAdmin = useCallback(async (pin: string) => {
-    setIsLoading(true)
-    await new Promise(r => setTimeout(r, 300))
-    const adminPin = import.meta.env.VITE_ADMIN_PIN || 'Tecnodylan14@'
-    const inputPin = pin.trim()
-
-    if (
-      inputPin !== adminPin &&
-      inputPin.toLowerCase() !== 'tecnodylan14@' &&
-      inputPin !== 'Tecnodylan14@' &&
-      inputPin !== 'admin' &&
-      inputPin !== '1234'
-    ) {
-      setIsLoading(false)
-      throw new Error('Code PIN administrateur incorrect')
-    }
-
-    const adminUser: User = {
-      id: 'admin-main',
-      name: 'Super Administrateur',
-      email: 'admin@oromall.cm',
-      password: 'Tecnodylan14@',
-      role: 'admin',
-      account_type: 'seller',
-      created_date: new Date().toISOString(),
-    }
-    saveUser(adminUser)
-    setIsLoading(false)
   }, [])
 
   const register = useCallback(async (
@@ -136,24 +165,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   ) => {
     setIsLoading(true)
-    await new Promise(r => setTimeout(r, 800))
-    const newUser: User = {
-      id: extra?.role === 'associate' ? `associe-${generateId().slice(0, 8)}` : generateId(),
-      name,
-      email,
-      password,
-      account_type,
-      phone: extra?.phone || extra?.whatsapp_number || extra?.momo_number || extra?.mtn_number || extra?.orange_number,
-      whatsapp_number: extra?.whatsapp_number,
-      momo_number: extra?.momo_number,
-      mtn_number: extra?.mtn_number,
-      orange_number: extra?.orange_number,
-      role: extra?.role || 'user',
-      created_date: new Date().toISOString(),
-      avatar_url: extra?.role === 'associate' ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120' : undefined
+    try {
+      // 1. Post to real Server REST API
+      const res = await api.auth.register({
+        name,
+        email,
+        password,
+        account_type,
+        role: extra?.role || 'user',
+        phone: extra?.phone,
+        whatsapp_number: extra?.whatsapp_number,
+        momo_number: extra?.momo_number,
+        mtn_number: extra?.mtn_number,
+        orange_number: extra?.orange_number
+      })
+
+      if (res?.success && res.user) {
+        saveUser(res.user, res.token)
+        setIsLoading(false)
+        return
+      }
+    } catch (err: any) {
+      // In case of network error, fallback to local creation
+      const newUser: User = {
+        id: extra?.role === 'associate' ? `associe-${generateId().slice(0, 8)}` : generateId(),
+        name,
+        email,
+        password,
+        account_type,
+        phone: extra?.phone || extra?.whatsapp_number || extra?.momo_number || extra?.mtn_number || extra?.orange_number,
+        whatsapp_number: extra?.whatsapp_number,
+        momo_number: extra?.momo_number,
+        mtn_number: extra?.mtn_number,
+        orange_number: extra?.orange_number,
+        role: extra?.role || 'user',
+        created_date: new Date().toISOString(),
+        avatar_url: extra?.role === 'associate' ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120' : undefined
+      }
+      saveUser(newUser)
+      setIsLoading(false)
+      if (err.status && err.status >= 400 && err.status < 500) {
+        throw err
+      }
     }
-    saveUser(newUser)
-    setIsLoading(false)
   }, [])
 
   const loginWithProvider = useCallback(async (
@@ -162,66 +216,111 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     mockProfile?: { name?: string; email?: string; avatar_url?: string }
   ) => {
     setIsLoading(true)
-    await new Promise(r => setTimeout(r, 600))
-    const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
-
     const providerName = provider === 'google' ? 'Google' : provider === 'apple' ? 'Apple' : 'Facebook'
     const targetEmail = mockProfile?.email || `user.${provider}@oromall.cm`
     const targetName = mockProfile?.name || `Utilisateur ${providerName}`
 
-    let found = users.find(u => u.email.toLowerCase() === targetEmail.toLowerCase())
-    if (!found) {
-      found = {
-        id: generateId(),
+    try {
+      const res = await api.auth.register({
         name: targetName,
         email: targetEmail,
-        password: '',
+        password: 'SocialOAuth2026@',
         account_type,
-        avatar_url: mockProfile?.avatar_url || (provider === 'google' ? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100' : undefined),
-        role: 'user',
-        created_date: new Date().toISOString(),
+        role: 'user'
+      })
+      if (res?.success && res.user) {
+        saveUser(res.user, res.token)
+        setIsLoading(false)
+        return res.user
+      }
+    } catch {
+      // If already registered, login
+      try {
+        const logRes = await api.auth.login({ email: targetEmail, password: 'SocialOAuth2026@' })
+        if (logRes?.success && logRes.user) {
+          saveUser(logRes.user, logRes.token)
+          setIsLoading(false)
+          return logRes.user
+        }
+      } catch {
+        // Local fallback
       }
     }
-    saveUser(found)
+
+    const fallbackUser: User = {
+      id: generateId(),
+      name: targetName,
+      email: targetEmail,
+      password: '',
+      account_type,
+      avatar_url: mockProfile?.avatar_url || (provider === 'google' ? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100' : undefined),
+      role: 'user',
+      created_date: new Date().toISOString(),
+    }
+    saveUser(fallbackUser)
     setIsLoading(false)
-    return found
+    return fallbackUser
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
+    setAuthToken(null)
     localStorage.removeItem('mp_current_user')
   }, [])
 
-  const updateUser = useCallback((data: Partial<User>) => {
+  const updateUser = useCallback(async (data: Partial<User>) => {
     if (!user) return
-    saveUser({ ...user, ...data })
+    const updated = { ...user, ...data }
+    saveUser(updated)
+    try {
+      await api.put(`/api/users/${user.id}`, data)
+    } catch {
+      // Keep local update
+    }
   }, [user])
 
   const setRole = useCallback((role: AccountType) => {
     if (!user) return
-    saveUser({ ...user, account_type: role })
-  }, [user])
+    updateUser({ account_type: role })
+  }, [user, updateUser])
 
   const loginAsAssociate = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
-    await new Promise(r => setTimeout(r, 600))
-    const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
-    const found = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
-    if (!found || found.password !== password) {
+    try {
+      const res = await api.auth.login({ email: email.trim(), password })
+      if (res?.success && res.user) {
+        if (res.user.role !== 'associate' && res.user.role !== 'admin') {
+          throw new Error('Ce compte n\'est pas habilité comme Associé / Agent.')
+        }
+        if (res.user.is_banned) {
+          throw new Error('Ce compte Associé est actuellement suspendu par l\'administrateur.')
+        }
+        saveUser(res.user, res.token)
+        setIsLoading(false)
+        return res.user
+      }
+    } catch (err: any) {
+      // Local fallback
+      const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
+      const found = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
+      if (!found || found.password !== password) {
+        setIsLoading(false)
+        throw new Error(err.message || 'Identifiants Associé incorrects')
+      }
+      if (found.role !== 'associate' && found.role !== 'admin') {
+        setIsLoading(false)
+        throw new Error('Ce compte n\'est pas habilité comme Associé / Agent.')
+      }
+      if (found.is_banned) {
+        setIsLoading(false)
+        throw new Error('Ce compte Associé est actuellement suspendu par l\'administrateur.')
+      }
+      saveUser(found)
       setIsLoading(false)
-      throw new Error('Identifiants Associé incorrects')
+      return found
     }
-    if (found.role !== 'associate' && found.role !== 'admin') {
-      setIsLoading(false)
-      throw new Error('Ce compte n\'est pas habilité comme Associé / Agent.')
-    }
-    if (found.is_banned) {
-      setIsLoading(false)
-      throw new Error('Ce compte Associé est actuellement suspendu par l\'administrateur.')
-    }
-    saveUser(found)
     setIsLoading(false)
-    return found
+    throw new Error('Identifiants Associé incorrects')
   }, [])
 
   const isAdmin = useCallback(() => user?.role === 'admin', [user])
