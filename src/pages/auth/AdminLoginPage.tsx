@@ -196,6 +196,15 @@ export default function AdminLoginPage() {
             >
               <Home className="w-4 h-4 mr-1.5" /> Ouvrir mon Espace Associé
             </Button>
+
+            <div className="pt-2 text-center">
+              <Link
+                to="/register?role=associate"
+                className="text-xs text-emerald-400 hover:underline font-bold inline-flex items-center gap-1"
+              >
+                🤝 Pas encore de compte ? S'enregistrer comme Associé Terrain
+              </Link>
+            </div>
           </form>
         )}
 

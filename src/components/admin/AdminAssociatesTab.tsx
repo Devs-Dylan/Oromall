@@ -24,8 +24,9 @@ export function AdminAssociatesTab() {
   // Associate creation modal state
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [name, setName] = useState('')
+  const [momoNumber, setMomoNumber] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -36,8 +37,13 @@ export function AdminAssociatesTab() {
   // Handle create new Associate
   const handleCreateAssociate = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !email.trim() || !password) {
-      toastError('Veuillez remplir tous les champs obligatoires.')
+    if (!name.trim() || !momoNumber.trim() || !whatsappNumber.trim() || !email.trim() || !password) {
+      toastError('Veuillez remplir tous les champs obligatoires (Nom, N° MTN/OM, N° WhatsApp, Email, Mot de passe).')
+      return
+    }
+
+    if (password.length < 6) {
+      toastError('Le mot de passe doit comporter au moins 6 caractères.')
       return
     }
 
@@ -53,7 +59,10 @@ export function AdminAssociatesTab() {
       name: name.trim(),
       email: emailClean,
       password: password,
-      phone: phone.trim() || undefined,
+      phone: whatsappNumber.trim() || momoNumber.trim(),
+      whatsapp_number: whatsappNumber.trim(),
+      momo_number: momoNumber.trim(),
+      mtn_number: momoNumber.trim(),
       role: 'associate',
       account_type: 'client',
       created_date: new Date().toISOString(),
@@ -66,15 +75,16 @@ export function AdminAssociatesTab() {
       timestamp: new Date().toISOString(),
       admin_name: 'Administrateur',
       action: `Création compte Associé : ${newAssoc.name}`,
-      details: `Email : ${newAssoc.email} | Téléphone : ${newAssoc.phone || 'Non renseigné'}`,
+      details: `Email : ${newAssoc.email} | WhatsApp : ${newAssoc.whatsapp_number} | MTN/OM : ${newAssoc.momo_number}`,
       severity: 'info'
     })
 
     toastSuccess('Compte Associé créé avec succès ! 🤝', `L'associé peut désormais se connecter avec son email et mot de passe.`)
     setCreateModalOpen(false)
     setName('')
+    setMomoNumber('')
+    setWhatsappNumber('')
     setEmail('')
-    setPhone('')
     setPassword('')
     setLoading(false)
     forceUpdate(n => n + 1)
@@ -185,15 +195,22 @@ export function AdminAssociatesTab() {
                         </div>
                       </td>
 
-                      <td className="p-4 space-y-0.5">
-                        <p className="text-foreground flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5 text-primary" /> {assoc.email}
+                      <td className="p-4 space-y-1">
+                        <p className="text-foreground flex items-center gap-1.5 font-semibold">
+                          <Mail className="w-3.5 h-3.5 text-primary shrink-0" /> {assoc.email}
                         </p>
-                        {assoc.phone && (
-                          <p className="text-muted-foreground text-[11px] flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5 text-emerald-400" /> {assoc.phone}
-                          </p>
-                        )}
+                        <div className="flex flex-col gap-0.5 text-[11px]">
+                          {(assoc.whatsapp_number || assoc.phone) && (
+                            <p className="text-emerald-500 flex items-center gap-1.5 font-medium">
+                              <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> WhatsApp : {assoc.whatsapp_number || assoc.phone}
+                            </p>
+                          )}
+                          {(assoc.momo_number || assoc.mtn_number || assoc.orange_number) && (
+                            <p className="text-amber-500 dark:text-amber-400 flex items-center gap-1.5 font-medium">
+                              <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" /> MTN/OM : {assoc.momo_number || assoc.mtn_number || assoc.orange_number}
+                            </p>
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-4 text-center">
@@ -271,9 +288,10 @@ export function AdminAssociatesTab() {
       <Modal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        title="Créer un nouveau compte Associé"
+        title="Enregistrer un nouveau compte Associé"
       >
-        <form onSubmit={handleCreateAssociate} className="space-y-4 text-xs">
+        <form onSubmit={handleCreateAssociate} className="space-y-3.5 text-xs">
+          {/* 1. Nom */}
           <Input
             label="Nom & Prénom de l'Associé *"
             type="text"
@@ -283,6 +301,27 @@ export function AdminAssociatesTab() {
             onChange={e => setName(e.target.value)}
           />
 
+          {/* 2. Numéro MTN / OM */}
+          <Input
+            label="Numéro MTN / OM (Mobile Money pour versement des commissions) *"
+            type="tel"
+            placeholder="Ex: 677 00 00 00 / 699 00 00 00"
+            required
+            value={momoNumber}
+            onChange={e => setMomoNumber(e.target.value)}
+          />
+
+          {/* 3. Numéro WhatsApp */}
+          <Input
+            label="Numéro WhatsApp (pour coordination des visites et contact) *"
+            type="tel"
+            placeholder="Ex: 699 00 00 00"
+            required
+            value={whatsappNumber}
+            onChange={e => setWhatsappNumber(e.target.value)}
+          />
+
+          {/* 4. Email */}
           <Input
             label="Adresse Email de connexion *"
             type="email"
@@ -292,18 +331,11 @@ export function AdminAssociatesTab() {
             onChange={e => setEmail(e.target.value)}
           />
 
+          {/* 5. Mot de passe */}
           <Input
-            label="Numéro de Téléphone (MTN / Orange Money)"
-            type="tel"
-            placeholder="6XX XXX XXX"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-          />
-
-          <Input
-            label="Mot de passe provisoire *"
+            label="Mot de passe provisoire (min. 6 caractères) *"
             type="password"
-            placeholder="Assoc2026@..."
+            placeholder="••••••••"
             required
             value={password}
             onChange={e => setPassword(e.target.value)}
@@ -321,7 +353,7 @@ export function AdminAssociatesTab() {
               Annuler
             </Button>
             <Button type="submit" loading={loading} className="bg-primary hover:bg-primary/90 text-black font-bold">
-              <UserPlus className="w-4 h-4" /> Créer le compte
+              <UserPlus className="w-4 h-4" /> Enregistrer l'Associé
             </Button>
           </div>
         </form>

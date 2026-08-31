@@ -22,6 +22,8 @@ export interface User {
   email: string
   password: string
   phone?: string
+  whatsapp_number?: string
+  momo_number?: string
   mtn_number?: string
   orange_number?: string
   account_type?: AccountType

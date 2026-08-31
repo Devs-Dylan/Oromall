@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   UserPlus, User, Store, ArrowRight, ArrowLeft, CheckCircle2,
-  GraduationCap, Building2, Sparkles, Phone, ShieldCheck, Mail, Lock, Eye, EyeOff, Check, Zap, ShoppingBag, FileText
+  GraduationCap, Building2, Sparkles, Phone, ShieldCheck, Mail, Lock, Eye, EyeOff, Check, Zap, ShoppingBag, FileText,
+  Users, DollarSign, Home
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
@@ -11,14 +12,27 @@ import { toastSuccess, toastError } from '@/components/ui/Toast'
 import { TermsModal } from '@/components/auth/TermsModal'
 import type { AccountType } from '@/types'
 
+export type RegisterRole = AccountType | 'associate'
+
 export default function RegisterPage() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-  // Étape 1 : Choix du type de compte (Client / Étudiant OU Vendeur / Bailleur)
+  // Étape 1 : Choix du type de compte (Client / Étudiant, Vendeur / Bailleur, ou Associé Terrain)
   // Étape 2 : Renseignement des informations du compte
   const [step, setStep] = useState<1 | 2>(1)
-  const [selectedRole, setSelectedRole] = useState<AccountType>('client')
+  const [selectedRole, setSelectedRole] = useState<RegisterRole>('client')
+
+  // Detect URL query parameter ?role=associate or ?role=seller
+  useEffect(() => {
+    const roleParam = searchParams.get('role')
+    if (roleParam === 'associate') {
+      setSelectedRole('associate')
+    } else if (roleParam === 'seller') {
+      setSelectedRole('seller')
+    }
+  }, [searchParams])
 
   // Champs du formulaire
   const [name, setName] = useState('')
@@ -26,6 +40,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [phone, setPhone] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [momoNumber, setMomoNumber] = useState('')
   const [mtnNumber, setMtnNumber] = useState('')
   const [orangeNumber, setOrangeNumber] = useState('')
   const [acceptTerms, setAcceptTerms] = useState(true)
@@ -34,9 +50,18 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !email.trim() || !password) {
-      toastError('Champs obligatoires', 'Veuillez remplir tous les champs obligatoires.')
-      return
+
+    // Specific validation for Associate
+    if (selectedRole === 'associate') {
+      if (!name.trim() || !momoNumber.trim() || !whatsappNumber.trim() || !email.trim() || !password) {
+        toastError('Champs obligatoires', 'Veuillez renseigner votre Nom, Numéro MTN/OM, Numéro WhatsApp, Email et Mot de passe.')
+        return
+      }
+    } else {
+      if (!name.trim() || !email.trim() || !password) {
+        toastError('Champs obligatoires', 'Veuillez remplir tous les champs obligatoires.')
+        return
+      }
     }
 
     if (password.length < 6) {
@@ -51,18 +76,32 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      await register(name.trim(), email.trim(), password, selectedRole, {
-        phone: phone.trim() || undefined,
-        mtn_number: mtnNumber.trim() || undefined,
-        orange_number: orangeNumber.trim() || undefined,
-      })
-
-      if (selectedRole === 'seller') {
-        toastSuccess('Compte créé !', 'Passons maintenant à la configuration de votre dossier Vendeur / Bailleur.')
-        navigate('/seller/onboarding')
+      if (selectedRole === 'associate') {
+        await register(name.trim(), email.trim(), password, 'client', {
+          phone: whatsappNumber.trim() || momoNumber.trim(),
+          whatsapp_number: whatsappNumber.trim(),
+          momo_number: momoNumber.trim(),
+          mtn_number: momoNumber.trim(),
+          role: 'associate',
+        })
+        toastSuccess('Bienvenue dans l\'équipe Associés ! 🤝', 'Votre compte Associé / Agent Terrain est prêt.')
+        navigate('/associate')
       } else {
-        toastSuccess('Bienvenue sur OroMall !', 'Votre compte Client / Étudiant est prêt.')
-        navigate('/')
+        await register(name.trim(), email.trim(), password, selectedRole, {
+          phone: (whatsappNumber.trim() || phone.trim()) || undefined,
+          whatsapp_number: whatsappNumber.trim() || undefined,
+          momo_number: momoNumber.trim() || undefined,
+          mtn_number: mtnNumber.trim() || momoNumber.trim() || undefined,
+          orange_number: orangeNumber.trim() || undefined,
+        })
+
+        if (selectedRole === 'seller') {
+          toastSuccess('Compte créé !', 'Passons maintenant à la configuration de votre dossier Vendeur / Bailleur.')
+          navigate('/seller/onboarding')
+        } else {
+          toastSuccess('Bienvenue sur OroMall !', 'Votre compte Client / Étudiant est prêt.')
+          navigate('/')
+        }
       }
     } catch (err: any) {
       toastError('Erreur d\'inscription', err?.message || 'Une erreur est survenue lors de la création du compte.')
@@ -114,7 +153,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Timeline étapes d'inscription */}
-          <div className="space-y-4 my-8 relative z-10">
+            <div className="space-y-4 my-8 relative z-10">
             <div className="flex items-start gap-3.5">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
                 step === 1 ? 'bg-primary text-black ring-4 ring-primary/20' : 'bg-emerald-500 text-white'
@@ -125,7 +164,7 @@ export default function RegisterPage() {
                 <p className={`text-xs font-bold ${step === 1 ? 'text-amber-400' : 'text-white'}`}>
                   Étape 1 : Choix de votre profil
                 </p>
-                <p className="text-[11px] text-slate-400">Client / Étudiant ou Vendeur / Bailleur</p>
+                <p className="text-[11px] text-slate-400">Client, Vendeur / Bailleur ou Associé Terrain</p>
               </div>
             </div>
 
@@ -139,7 +178,7 @@ export default function RegisterPage() {
                 <p className={`text-xs font-bold ${step === 2 ? 'text-amber-400' : 'text-slate-400'}`}>
                   Étape 2 : Vos identifiants sécurisés
                 </p>
-                <p className="text-[11px] text-slate-400">Informations de contact et paiements MoMo</p>
+                <p className="text-[11px] text-slate-400">Informations de contact et numéros MoMo/OM</p>
               </div>
             </div>
           </div>
@@ -171,7 +210,7 @@ export default function RegisterPage() {
           
           {/* ================= ÉTAPE 1 : CHOIX DU PROFIL ================= */}
           {step === 1 && (
-            <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="space-y-5 animate-in fade-in duration-200">
               
               <div className="space-y-1.5">
                 <span className="badge-primary text-[11px] px-2.5 py-0.5">
@@ -181,52 +220,52 @@ export default function RegisterPage() {
                   Quel est votre profil ?
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Sélectionnez l'usage principal de votre compte. Vous pourrez toujours faire évoluer votre profil plus tard.
+                  Sélectionnez l'usage principal de votre compte pour adapter votre expérience.
                 </p>
               </div>
 
               {/* Cartes de sélection de profil */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 
                 {/* 1. CARTE CLIENT / ÉTUDIANT */}
                 <button
                   type="button"
                   onClick={() => setSelectedRole('client')}
-                  className={`p-5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-4 group ${
+                  className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-3 group ${
                     selectedRole === 'client'
                       ? 'border-blue-500 bg-blue-500/10 shadow-lg ring-2 ring-blue-500/20'
                       : 'border-border/80 bg-card hover:border-border hover:bg-muted/50'
                   }`}
                 >
                   {selectedRole === 'client' && (
-                    <div className="absolute top-3.5 right-3.5 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md">
-                      <Check className="w-3.5 h-3.5" />
+                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md">
+                      <Check className="w-3 h-3" />
                     </div>
                   )}
 
-                  <div className="space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-500/15 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <GraduationCap className="w-6 h-6" />
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <GraduationCap className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
-                        Acheteur & Locataire
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded-full">
+                        Acheteur
                       </span>
-                      <h3 className="font-bold text-base text-foreground mt-1.5">
+                      <h3 className="font-bold text-sm text-foreground mt-1">
                         Client / Étudiant
                       </h3>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                        Pour faire des achats, commander des articles et trouver une chambre ou un studio.
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                        Pour faire des achats et visiter des logements & cités.
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground space-y-1">
-                    <div className="flex items-center gap-1.5 text-foreground font-medium">
-                      <ShoppingBag className="w-3.5 h-3.5 text-blue-500" /> Achat & commande en ligne
+                  <div className="pt-2 border-t border-border/40 text-[10px] text-muted-foreground space-y-0.5">
+                    <div className="flex items-center gap-1 text-foreground font-medium">
+                      <ShoppingBag className="w-3 h-3 text-blue-500" /> Achat & commande
                     </div>
-                    <div className="flex items-center gap-1.5 text-foreground font-medium">
-                      <Building2 className="w-3.5 h-3.5 text-blue-500" /> Visite de logements & cités
+                    <div className="flex items-center gap-1 text-foreground font-medium">
+                      <Building2 className="w-3 h-3 text-blue-500" /> Visites de chambres
                     </div>
                   </div>
                 </button>
@@ -235,41 +274,84 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedRole('seller')}
-                  className={`p-5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-4 group ${
+                  className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-3 group ${
                     selectedRole === 'seller'
                       ? 'border-amber-500 bg-amber-500/10 shadow-lg ring-2 ring-amber-500/20'
                       : 'border-border/80 bg-card hover:border-border hover:bg-muted/50'
                   }`}
                 >
                   {selectedRole === 'seller' && (
-                    <div className="absolute top-3.5 right-3.5 w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-md">
-                      <Check className="w-3.5 h-3.5" />
+                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-md">
+                      <Check className="w-3 h-3" />
                     </div>
                   )}
 
-                  <div className="space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Store className="w-6 h-6" />
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Store className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                        Professionnel
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
+                        Commerçant
                       </span>
-                      <h3 className="font-bold text-base text-foreground mt-1.5">
+                      <h3 className="font-bold text-sm text-foreground mt-1">
                         Vendeur / Bailleur
                       </h3>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                        Pour vendre vos produits ou louer vos chambres, studios et résidences.
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                        Pour vendre vos articles ou louer vos biens immobiliers.
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground space-y-1">
-                    <div className="flex items-center gap-1.5 text-foreground font-medium">
-                      <Store className="w-3.5 h-3.5 text-amber-500" /> Vitrine & gestion de boutique
+                  <div className="pt-2 border-t border-border/40 text-[10px] text-muted-foreground space-y-0.5">
+                    <div className="flex items-center gap-1 text-foreground font-medium">
+                      <Store className="w-3 h-3 text-amber-500" /> Vitrine & boutique
                     </div>
-                    <div className="flex items-center gap-1.5 text-foreground font-medium">
-                      <Building2 className="w-3.5 h-3.5 text-amber-500" /> Annonces & visites de logements
+                    <div className="flex items-center gap-1 text-foreground font-medium">
+                      <Building2 className="w-3 h-3 text-amber-500" /> Gestion annonces
+                    </div>
+                  </div>
+                </button>
+
+                {/* 3. CARTE ASSOCIÉ / AGENT TERRAIN */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('associate')}
+                  className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-3 group ${
+                    selectedRole === 'associate'
+                      ? 'border-emerald-500 bg-emerald-500/10 shadow-lg ring-2 ring-emerald-500/20'
+                      : 'border-border/80 bg-card hover:border-border hover:bg-muted/50'
+                  }`}
+                >
+                  {selectedRole === 'associate' && (
+                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md">
+                      <Check className="w-3 h-3" />
+                    </div>
+                  )}
+
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                        Partenaire
+                      </span>
+                      <h3 className="font-bold text-sm text-foreground mt-1">
+                        Associé Terrain
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                        Recensez des logements et gagnez des primes Mobile Money.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-border/40 text-[10px] text-muted-foreground space-y-0.5">
+                    <div className="flex items-center gap-1 text-foreground font-medium">
+                      <Home className="w-3 h-3 text-emerald-500" /> Recensement biens
+                    </div>
+                    <div className="flex items-center gap-1 text-foreground font-medium">
+                      <DollarSign className="w-3 h-3 text-emerald-500" /> Commissions MoMo
                     </div>
                   </div>
                 </button>
@@ -283,7 +365,7 @@ export default function RegisterPage() {
                   onClick={() => setStep(2)}
                   className="w-full justify-center py-3.5 text-sm font-bold shadow-xl shadow-primary/25 bg-gradient-to-r from-amber-500 via-primary to-amber-600 hover:opacity-95 text-black rounded-xl transition-all"
                 >
-                  Continuer en tant que {selectedRole === 'seller' ? 'Vendeur / Bailleur' : 'Client / Étudiant'} <ArrowRight className="w-4 h-4" />
+                  Continuer en tant que {selectedRole === 'associate' ? 'Associé / Agent Terrain' : selectedRole === 'seller' ? 'Vendeur / Bailleur' : 'Client / Étudiant'} <ArrowRight className="w-4 h-4" />
                 </Button>
               </div>
 
@@ -292,7 +374,7 @@ export default function RegisterPage() {
 
           {/* ================= ÉTAPE 2 : FORMULAIRE D'INSCRIPTION ================= */}
           {step === 2 && (
-            <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-200">
+            <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in duration-200">
               
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -308,97 +390,191 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-foreground tracking-tight">
-                  Créez votre compte
+                  {selectedRole === 'associate' ? 'Inscription Associé / Agent' : 'Créez votre compte'}
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Profil choisi : <strong className={selectedRole === 'seller' ? 'text-amber-500' : 'text-blue-500'}>
-                    {selectedRole === 'seller' ? '🏬 / 🏠 Vendeur & Bailleur' : '🎓 Client / Étudiant'}
+                  Profil choisi : <strong className={selectedRole === 'associate' ? 'text-emerald-500' : selectedRole === 'seller' ? 'text-amber-500' : 'text-blue-500'}>
+                    {selectedRole === 'associate' ? '🤝 Associé & Agent Terrain' : selectedRole === 'seller' ? '🏬 / 🏠 Vendeur & Bailleur' : '🎓 Client / Étudiant'}
                   </strong>
                 </p>
               </div>
 
-              <div className="space-y-3.5">
-                
-                {/* Nom complet */}
-                <Input
-                  label="Nom complet ou Pseudonyme *"
-                  placeholder="Ex: Jean Nsangou, Dylan Devs..."
-                  required
-                  leftIcon={<User className="w-4 h-4" />}
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  autoComplete="name"
-                  className="py-2.5 text-sm rounded-xl"
-                />
+              {/* Formulaire spécifique selon le rôle */}
+              {selectedRole === 'associate' ? (
+                /* === CHAMPS POUR L'ASSOCIÉ (Nom, Numéro MTN/OM, Numéro WhatsApp, Email, Mot de passe) === */
+                <div className="space-y-3">
+                  
+                  {/* 1. Nom */}
+                  <Input
+                    label="Nom & Prénom de l'Associé *"
+                    placeholder="Ex: Alain - Agent Bastos / Ngoa-Ekellé"
+                    required
+                    leftIcon={<User className="w-4 h-4" />}
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    autoComplete="name"
+                    className="py-2.5 text-sm rounded-xl"
+                  />
 
-                {/* Email */}
-                <Input
-                  label="Adresse Email *"
-                  type="email"
-                  placeholder="votre@email.cm"
-                  required
-                  leftIcon={<Mail className="w-4 h-4" />}
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  autoComplete="email"
-                  className="py-2.5 text-sm rounded-xl"
-                />
-
-                {/* Mot de passe avec toggle */}
-                <div className="form-group">
-                  <label className="form-label">Mot de passe (min. 6 caractères) *</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-                      <Lock className="w-4 h-4" />
-                    </span>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
+                  {/* 2. Numéro MTN / OM */}
+                  <div className="space-y-1">
+                    <Input
+                      label="Numéro MTN / OM (Mobile Money pour reversement des commissions) *"
+                      type="tel"
+                      placeholder="Ex: 677 00 00 00 ou 699 00 00 00"
                       required
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      autoComplete="new-password"
-                      className="input-field pl-10 pr-11 py-2.5 text-sm rounded-xl w-full"
+                      leftIcon={<DollarSign className="w-4 h-4 text-amber-500" />}
+                      value={momoNumber}
+                      onChange={e => setMomoNumber(e.target.value)}
+                      className="py-2.5 text-sm rounded-xl"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg focus:outline-none"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                    <p className="text-[10px] text-muted-foreground pl-1">
+                      Numéro où seront versées vos primes de 5 000 FCFA par logement validé et vos commissions.
+                    </p>
                   </div>
-                </div>
 
-                {/* Téléphone / WhatsApp */}
-                <Input
-                  label="Numéro WhatsApp ou Téléphone"
-                  placeholder="Ex: 699 00 00 00"
-                  leftIcon={<Phone className="w-4 h-4" />}
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  className="py-2.5 text-sm rounded-xl"
-                />
+                  {/* 3. Numéro WhatsApp */}
+                  <div className="space-y-1">
+                    <Input
+                      label="Numéro WhatsApp (pour contact visites et bailleurs) *"
+                      type="tel"
+                      placeholder="Ex: 699 00 00 00"
+                      required
+                      leftIcon={<Phone className="w-4 h-4 text-emerald-500" />}
+                      value={whatsappNumber}
+                      onChange={e => setWhatsappNumber(e.target.value)}
+                      className="py-2.5 text-sm rounded-xl"
+                    />
+                    <p className="text-[10px] text-muted-foreground pl-1">
+                      Utilisé pour coordonner les rendez-vous et communiquer avec les bailleurs et clients.
+                    </p>
+                  </div>
 
-                {/* Mobile Money (MTN & Orange) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* 4. Email */}
                   <Input
-                    label="MTN MoMo (optionnel)"
-                    placeholder="6XX XXX XXX"
-                    value={mtnNumber}
-                    onChange={e => setMtnNumber(e.target.value)}
+                    label="Adresse Email de connexion *"
+                    type="email"
+                    placeholder="alain.agent@oromall.cm"
+                    required
+                    leftIcon={<Mail className="w-4 h-4" />}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    autoComplete="email"
                     className="py-2.5 text-sm rounded-xl"
                   />
+
+                  {/* 5. Mot de passe */}
+                  <div className="form-group">
+                    <label className="form-label">Mot de passe (min. 6 caractères) *</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        <Lock className="w-4 h-4" />
+                      </span>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        required
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        autoComplete="new-password"
+                        className="input-field pl-10 pr-11 py-2.5 text-sm rounded-xl w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg focus:outline-none"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              ) : (
+                /* === CHAMPS POUR CLIENT & VENDEUR === */
+                <div className="space-y-3">
+                  
+                  {/* Nom complet */}
                   <Input
-                    label="Orange Money (optionnel)"
-                    placeholder="6XX XXX XXX"
-                    value={orangeNumber}
-                    onChange={e => setOrangeNumber(e.target.value)}
+                    label="Nom complet ou Pseudonyme *"
+                    placeholder="Ex: Jean Nsangou, Dylan Devs..."
+                    required
+                    leftIcon={<User className="w-4 h-4" />}
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    autoComplete="name"
                     className="py-2.5 text-sm rounded-xl"
                   />
-                </div>
 
-              </div>
+                  {/* Email */}
+                  <Input
+                    label="Adresse Email *"
+                    type="email"
+                    placeholder="votre@email.cm"
+                    required
+                    leftIcon={<Mail className="w-4 h-4" />}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    autoComplete="email"
+                    className="py-2.5 text-sm rounded-xl"
+                  />
+
+                  {/* Mot de passe avec toggle */}
+                  <div className="form-group">
+                    <label className="form-label">Mot de passe (min. 6 caractères) *</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        <Lock className="w-4 h-4" />
+                      </span>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        required
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        autoComplete="new-password"
+                        className="input-field pl-10 pr-11 py-2.5 text-sm rounded-xl w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg focus:outline-none"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Téléphone / WhatsApp */}
+                  <Input
+                    label="Numéro WhatsApp ou Téléphone"
+                    placeholder="Ex: 699 00 00 00"
+                    leftIcon={<Phone className="w-4 h-4" />}
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="py-2.5 text-sm rounded-xl"
+                  />
+
+                  {/* Mobile Money (MTN & Orange) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      label="MTN MoMo (optionnel)"
+                      placeholder="6XX XXX XXX"
+                      value={mtnNumber}
+                      onChange={e => setMtnNumber(e.target.value)}
+                      className="py-2.5 text-sm rounded-xl"
+                    />
+                    <Input
+                      label="Orange Money (optionnel)"
+                      placeholder="6XX XXX XXX"
+                      value={orangeNumber}
+                      onChange={e => setOrangeNumber(e.target.value)}
+                      className="py-2.5 text-sm rounded-xl"
+                    />
+                  </div>
+
+                </div>
+              )}
 
               {/* Conditions d'utilisation */}
               <div className="pt-1 space-y-1.5">
@@ -451,12 +627,18 @@ export default function RegisterPage() {
                 <Button
                   type="submit"
                   loading={loading}
-                  className="w-full justify-center py-3.5 text-sm font-bold shadow-xl shadow-primary/25 bg-gradient-to-r from-amber-500 via-primary to-amber-600 hover:opacity-95 text-black rounded-xl transition-all"
+                  className={`w-full justify-center py-3.5 text-sm font-bold shadow-xl rounded-xl transition-all ${
+                    selectedRole === 'associate'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
+                      : 'bg-gradient-to-r from-amber-500 via-primary to-amber-600 hover:opacity-95 text-black shadow-primary/25'
+                  }`}
                 >
                   <UserPlus className="w-4 h-4" />
-                  {selectedRole === 'seller'
-                    ? 'Créer mon compte et configurer mon dossier Vendeur / Bailleur'
-                    : 'Créer mon compte Client / Étudiant'
+                  {selectedRole === 'associate'
+                    ? "Créer mon compte et ouvrir l'Espace Associé 🤝"
+                    : selectedRole === 'seller'
+                      ? 'Créer mon compte et configurer mon dossier Vendeur / Bailleur'
+                      : 'Créer mon compte Client / Étudiant'
                   }
                 </Button>
 

@@ -13,7 +13,14 @@ interface AuthContextType {
     email: string,
     password: string,
     account_type?: AccountType,
-    extra?: { phone?: string; mtn_number?: string; orange_number?: string }
+    extra?: {
+      phone?: string
+      whatsapp_number?: string
+      momo_number?: string
+      mtn_number?: string
+      orange_number?: string
+      role?: UserRole
+    }
   ) => Promise<void>
   loginWithProvider: (
     provider: 'google' | 'apple' | 'facebook',
@@ -119,21 +126,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     account_type: AccountType = 'client',
-    extra?: { phone?: string; mtn_number?: string; orange_number?: string }
+    extra?: {
+      phone?: string
+      whatsapp_number?: string
+      momo_number?: string
+      mtn_number?: string
+      orange_number?: string
+      role?: UserRole
+    }
   ) => {
     setIsLoading(true)
     await new Promise(r => setTimeout(r, 800))
     const newUser: User = {
-      id: generateId(),
+      id: extra?.role === 'associate' ? `associe-${generateId().slice(0, 8)}` : generateId(),
       name,
       email,
       password,
       account_type,
-      phone: extra?.phone || extra?.mtn_number || extra?.orange_number,
+      phone: extra?.phone || extra?.whatsapp_number || extra?.momo_number || extra?.mtn_number || extra?.orange_number,
+      whatsapp_number: extra?.whatsapp_number,
+      momo_number: extra?.momo_number,
       mtn_number: extra?.mtn_number,
       orange_number: extra?.orange_number,
-      role: 'user',
+      role: extra?.role || 'user',
       created_date: new Date().toISOString(),
+      avatar_url: extra?.role === 'associate' ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120' : undefined
     }
     saveUser(newUser)
     setIsLoading(false)
