@@ -4,15 +4,21 @@ import path from 'path'
 import { handleApiRequest } from './server/apiRouter.mjs'
 
 function oromallBackendPlugin() {
+  const handler = async (req: any, res: any, next: any) => {
+    const raw = req.originalUrl || req.url || ''
+    if (raw.startsWith('/api')) {
+      return handleApiRequest(req, res)
+    }
+    next()
+  }
+
   return {
     name: 'oromall-backend-api',
     configureServer(server: any) {
-      server.middlewares.use(async (req: any, res: any, next: any) => {
-        if (req.url && req.url.startsWith('/api')) {
-          return handleApiRequest(req, res)
-        }
-        next()
-      })
+      server.middlewares.use(handler)
+    },
+    configurePreviewServer(server: any) {
+      server.middlewares.use(handler)
     }
   }
 }

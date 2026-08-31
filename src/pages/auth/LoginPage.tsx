@@ -33,8 +33,8 @@ export default function LoginPage() {
       await login(email.trim(), password)
       toastSuccess('Ravi de vous revoir !', 'Connexion réussie à votre compte OroMall.')
       navigate(from, { replace: true })
-    } catch {
-      toastError('Échec de la connexion', 'Email ou mot de passe incorrect.')
+    } catch (err: any) {
+      toastError('Échec de la connexion', err?.message || 'Email ou mot de passe incorrect.')
     } finally {
       setLoading(false)
     }

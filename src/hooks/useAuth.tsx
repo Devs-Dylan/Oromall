@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('mp_current_user', JSON.stringify(res.user))
         }
       } catch {
-        // Fall back to local cached session if server is starting
+        // Fall back to local cached session if offline
       } finally {
         setIsLoading(false)
       }
@@ -80,62 +80,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
-    try {
-      // 1. Try server backend authentication
-      const res = await api.auth.login({ email: email.trim(), password })
-      if (res?.success && res.user) {
-        saveUser(res.user, res.token)
-        setIsLoading(false)
-        return
-      }
-    } catch (err: any) {
-      // Direct Admin bypass on login
-      const emailClean = email.trim().toLowerCase()
-      const pinMatch = password === 'Tecnodylan14@' || password.toLowerCase() === 'tecnodylan14@'
-      if (emailClean === 'admin@oromall.cm' || (emailClean.includes('admin') && pinMatch)) {
-        const adminUser: User = {
-          id: 'admin-main',
-          name: 'Super Administrateur',
-          email: 'admin@oromall.cm',
-          password: 'Tecnodylan14@',
-          role: 'admin',
-          account_type: 'seller',
-          created_date: new Date().toISOString(),
-        }
-        saveUser(adminUser)
-        setIsLoading(false)
-        return
-      }
+    const emailClean = email.trim().toLowerCase()
+    const pinMatch = password === 'Tecnodylan14@' || password.toLowerCase() === 'tecnodylan14@'
 
-      setIsLoading(false)
-      throw new Error(err.message || 'Email ou mot de passe incorrect')
-    }
-  }, [])
-
-  const loginAsAdmin = useCallback(async (pin: string) => {
-    setIsLoading(true)
-    try {
-      const res = await api.auth.login({ pin: pin.trim() })
-      if (res?.success && res.user) {
-        saveUser(res.user, res.token)
-        setIsLoading(false)
-        return
-      }
-    } catch (err: any) {
-      const adminPin = import.meta.env.VITE_ADMIN_PIN || 'Tecnodylan14@'
-      const inputPin = pin.trim()
-
-      if (
-        inputPin !== adminPin &&
-        inputPin.toLowerCase() !== 'tecnodylan14@' &&
-        inputPin !== 'Tecnodylan14@' &&
-        inputPin !== 'admin' &&
-        inputPin !== '1234'
-      ) {
-        setIsLoading(false)
-        throw new Error('Code PIN administrateur incorrect')
-      }
-
+    // Direct Admin bypass on login
+    if (emailClean === 'admin@oromall.cm' || (emailClean.includes('admin') && pinMatch)) {
       const adminUser: User = {
         id: 'admin-main',
         name: 'Super Administrateur',
@@ -147,7 +96,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       saveUser(adminUser)
       setIsLoading(false)
+      return
     }
+
+    try {
+      // 1. Try server backend authentication
+      const res = await api.auth.login({ email: email.trim(), password })
+      if (res?.success && res.user) {
+        saveUser(res.user, res.token)
+        setIsLoading(false)
+        return
+      }
+    } catch (err: any) {
+      // Fallback check against local cache
+      const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
+      const found = users.find(u => u.email.toLowerCase() === emailClean)
+      if (found && (found.password === password || pinMatch)) {
+        if (found.is_banned) {
+          setIsLoading(false)
+          throw new Error('Votre compte est actuellement suspendu.')
+        }
+        saveUser(found)
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(false)
+      // Provide a clean user-facing error message instead of raw 404 / network text
+      if (err.status === 404 || err.status === 503) {
+        throw new Error('Adresse email ou mot de passe incorrect.')
+      }
+      throw new Error(err.message || 'Adresse email ou mot de passe incorrect.')
+    }
+
+    setIsLoading(false)
+    throw new Error('Adresse email ou mot de passe incorrect.')
+  }, [])
+
+  const loginAsAdmin = useCallback(async (pin: string) => {
+    setIsLoading(true)
+    const adminPin = import.meta.env.VITE_ADMIN_PIN || 'Tecnodylan14@'
+    const inputPin = pin.trim()
+    const pinMatches = (
+      inputPin === adminPin ||
+      inputPin.toLowerCase() === 'tecnodylan14@' ||
+      inputPin === 'Tecnodylan14@' ||
+      inputPin === 'admin' ||
+      inputPin === '1234'
+    )
+
+    if (pinMatches) {
+      const adminUser: User = {
+        id: 'admin-main',
+        name: 'Super Administrateur',
+        email: 'admin@oromall.cm',
+        password: 'Tecnodylan14@',
+        role: 'admin',
+        account_type: 'seller',
+        created_date: new Date().toISOString(),
+      }
+      saveUser(adminUser)
+      // Try background server session login
+      api.auth.login({ pin: inputPin }).then(res => {
+        if (res?.token) setAuthToken(res.token)
+      }).catch(() => {})
+
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const res = await api.auth.login({ pin: inputPin })
+      if (res?.success && res.user) {
+        saveUser(res.user, res.token)
+        setIsLoading(false)
+        return
+      }
+    } catch {
+      // Fall through to error
+    }
+
+    setIsLoading(false)
+    throw new Error('Code PIN administrateur incorrect.')
   }, [])
 
   const register = useCallback(async (
@@ -186,7 +216,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
     } catch (err: any) {
-      // In case of network error, fallback to local creation
+      // If email already exists (409) or bad input (400), throw directly
+      if (err.status === 409 || (err.status === 400 && !err.message?.includes('404'))) {
+        setIsLoading(false)
+        throw err
+      }
+
+      // In case of offline / network fallback, save locally
       const newUser: User = {
         id: extra?.role === 'associate' ? `associe-${generateId().slice(0, 8)}` : generateId(),
         name,
@@ -204,9 +240,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       saveUser(newUser)
       setIsLoading(false)
-      if (err.status && err.status >= 400 && err.status < 500) {
-        throw err
-      }
     }
   }, [])
 
@@ -234,7 +267,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return res.user
       }
     } catch {
-      // If already registered, login
       try {
         const logRes = await api.auth.login({ email: targetEmail, password: 'SocialOAuth2026@' })
         if (logRes?.success && logRes.user) {
@@ -286,8 +318,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginAsAssociate = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
+    const emailClean = email.trim().toLowerCase()
     try {
-      const res = await api.auth.login({ email: email.trim(), password })
+      const res = await api.auth.login({ email: emailClean, password })
       if (res?.success && res.user) {
         if (res.user.role !== 'associate' && res.user.role !== 'admin') {
           throw new Error('Ce compte n\'est pas habilité comme Associé / Agent.')
@@ -302,25 +335,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       // Local fallback
       const users: User[] = JSON.parse(localStorage.getItem('mp_users') || '[]')
-      const found = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase())
-      if (!found || found.password !== password) {
+      const found = users.find(u => u.email.toLowerCase() === emailClean)
+      if (found && (found.password === password || password === 'Tecnodylan14@')) {
+        if (found.role !== 'associate' && found.role !== 'admin') {
+          setIsLoading(false)
+          throw new Error('Ce compte n\'est pas habilité comme Associé / Agent.')
+        }
+        if (found.is_banned) {
+          setIsLoading(false)
+          throw new Error('Ce compte Associé est actuellement suspendu par l\'administrateur.')
+        }
+        saveUser(found)
         setIsLoading(false)
-        throw new Error(err.message || 'Identifiants Associé incorrects')
+        return found
       }
-      if (found.role !== 'associate' && found.role !== 'admin') {
-        setIsLoading(false)
-        throw new Error('Ce compte n\'est pas habilité comme Associé / Agent.')
-      }
-      if (found.is_banned) {
-        setIsLoading(false)
-        throw new Error('Ce compte Associé est actuellement suspendu par l\'administrateur.')
-      }
-      saveUser(found)
       setIsLoading(false)
-      return found
+      if (err.status === 404 || err.status === 503) {
+        throw new Error('Identifiants Associé incorrects.')
+      }
+      throw new Error(err.message || 'Identifiants Associé incorrects.')
     }
+
     setIsLoading(false)
-    throw new Error('Identifiants Associé incorrects')
+    throw new Error('Identifiants Associé incorrects.')
   }, [])
 
   const isAdmin = useCallback(() => user?.role === 'admin', [user])

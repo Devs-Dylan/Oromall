@@ -267,6 +267,15 @@
     {
       "admin_name": "Serveur Auth",
       "action": "Nouvelle Inscription : Samuel - Agent Terrain Molyko (associate)",
+      "details": "Email : associe.e2e.1788193208567@oromall.cm | N° : 699887766",
+      "severity": "info",
+      "id": "2da06aba-5391-421c-b092-551bdcb7a4c3",
+      "created_date": "2026-08-31T16:20:08.571Z",
+      "updated_date": "2026-08-31T16:20:08.571Z"
+    },
+    {
+      "admin_name": "Serveur Auth",
+      "action": "Nouvelle Inscription : Samuel - Agent Terrain Molyko (associate)",
       "details": "Email : associe.e2e.1788192363355@oromall.cm | N° : 699887766",
       "severity": "info",
       "id": "6f3d35a8-26a7-49cb-8d2b-fb3cdeb7ed27",

@@ -37,8 +37,12 @@ function sendJson(res, statusCode, payload) {
 }
 
 export async function handleApiRequest(req, res) {
-  const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
-  const pathname = urlObj.pathname
+  const rawUrl = req.originalUrl || req.url || '/'
+  const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`)
+  let pathname = urlObj.pathname.replace(/\/+$/, '') || '/'
+  if (!pathname.startsWith('/api')) {
+    pathname = `/api${pathname.startsWith('/') ? '' : '/'}${pathname}`
+  }
   const method = req.method
 
   // Handle CORS Preflight
