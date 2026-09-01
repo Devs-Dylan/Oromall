@@ -1,6 +1,6 @@
 // Centralized HTTP Client for OroMall Backend API
 
-const BASE_URL = '' // Empty means same host /api
+const BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   status: number
