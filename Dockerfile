@@ -17,7 +17,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=80
+ENV PORT=3000
 
 # Installation exclusive des dépendances de production
 COPY package*.json ./
@@ -29,7 +29,7 @@ COPY --from=builder /app/server ./server
 COPY --from=builder /app/schema.sql ./schema.sql
 COPY --from=builder /app/package.json ./package.json
 
-EXPOSE 80 3000
+EXPOSE 3000
 
 # Lancement du serveur Node.js qui sert l'API REST et le Frontend SPA
 CMD ["node", "server/server.mjs"]

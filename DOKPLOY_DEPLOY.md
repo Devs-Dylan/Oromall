@@ -43,10 +43,10 @@ VITE_ADMIN_PIN=Tecnodylan14@
 ---
 
 ### Étape 4 : Configurer le Domaine & SSL
-1. Dans l'onglet **Domains** du service `app` :
-   - Ajoutez votre nom de domaine (ex: `oromall.cm` ou `shop.votredomaine.com`).
-   - Port cible : `80`.
-   - Cochez **HTTPS** (Dokploy / Traefik génère et renouvelle automatiquement le certificat SSL Let's Encrypt gratuit et redirige le port 80 vers HTTPS 443).
+1. Dans l'onglet **Domains** du service `frontend` :
+   - Ajoutez votre nom de domaine (ex: `www.oromall.site` ou `oromall.site`).
+   - Port cible : **`3000`** (le reverse proxy Traefik de Dokploy reçoit le trafic sur les ports 80/443 du VPS et le route vers le port 3000 du conteneur).
+   - Cochez **HTTPS** (certificat SSL Let's Encrypt automatique).
 
 ---
 
@@ -56,7 +56,7 @@ VITE_ADMIN_PIN=Tecnodylan14@
    - Démarrer le conteneur **PostgreSQL 16** (`oromall_db`).
    - Initialiser les tables SQL avec [schema.sql](file:///home/devs-dylan/Téléchargements/E-Commerce/schema.sql).
    - Compiler l'application React Vite en bundle de production.
-   - Démarrer le serveur Node.js unifié (`oromall_app`) sur le port `80`.
+   - Démarrer le serveur Node.js unifié (`oromall_frontend`) sur le port interne `3000`.
 
 ---
 
