@@ -7,7 +7,7 @@ import { handleApiRequest } from './apiRouter.mjs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const PORT = Number(process.env.PORT || process.env.API_PORT || 3001)
+const PORT = Number(process.env.PORT || process.env.API_PORT || 3000)
 const DIST_DIR = path.resolve(__dirname, '../dist')
 
 const MIME_TYPES = {
@@ -30,6 +30,12 @@ const MIME_TYPES = {
 const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
   const pathname = urlObj.pathname
+
+  // Healthcheck endpoint
+  if (pathname === '/api/health' || pathname === '/healthz' || pathname === '/ping') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    return res.end(JSON.stringify({ status: 'healthy', uptime: process.uptime(), timestamp: new Date().toISOString() }))
+  }
 
   // 1. API Route handling
   if (pathname.startsWith('/api')) {
