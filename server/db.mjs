@@ -37,18 +37,25 @@ export function verifyPassword(password, hashedPassword) {
   return hashPassword(password) === hashedPassword || password === hashedPassword || password === 'Tecnodylan14@'
 }
 
-// Configuration PostgreSQL directe sur le serveur
-const pgConfig = {
-  host: process.env.PGHOST || 'localhost',
-  port: Number(process.env.PGPORT || 5432),
-  user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || 'postgres_secure_pass_2026',
-  database: process.env.PGDATABASE || 'marcheplus',
-  connectionString: process.env.DATABASE_URL || undefined,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-}
+// Configuration PostgreSQL directe sur le serveur (Support Dokploy & VPS)
+const pgConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_URL.includes('sslmode=require') || process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: 25,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    }
+  : {
+      host: process.env.PGHOST || 'localhost',
+      port: Number(process.env.PGPORT || 5432),
+      user: process.env.PGUSER || 'postgres',
+      password: process.env.PGPASSWORD || 'postgres_secure_pass_2026',
+      database: process.env.PGDATABASE || 'marcheplus',
+      max: 25,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    }
 
 export const pool = new Pool(pgConfig)
 
@@ -526,6 +533,166 @@ async function persistHousingToPostgres(h) {
   }
 }
 
+async function persistShopToPostgres(s) {
+  try {
+    await pool.query(`
+      INSERT INTO shops (id, name, description, owner_name, owner_email, owner_id, shop_type, status, category, city, address, whatsapp_number, mtn_number, orange_number, latitude, longitude, logo_url, profile_image, cover_image, business_hours, rating, reviews_count, is_verified, policies, social_links, created_date, updated_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description,
+        owner_name = EXCLUDED.owner_name,
+        owner_email = EXCLUDED.owner_email,
+        shop_type = EXCLUDED.shop_type,
+        status = EXCLUDED.status,
+        category = EXCLUDED.category,
+        city = EXCLUDED.city,
+        address = EXCLUDED.address,
+        whatsapp_number = EXCLUDED.whatsapp_number,
+        mtn_number = EXCLUDED.mtn_number,
+        orange_number = EXCLUDED.orange_number,
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
+        logo_url = EXCLUDED.logo_url,
+        profile_image = EXCLUDED.profile_image,
+        cover_image = EXCLUDED.cover_image,
+        business_hours = EXCLUDED.business_hours,
+        rating = EXCLUDED.rating,
+        reviews_count = EXCLUDED.reviews_count,
+        is_verified = EXCLUDED.is_verified,
+        policies = EXCLUDED.policies,
+        social_links = EXCLUDED.social_links,
+        updated_date = NOW()
+    `, [
+      s.id, s.name, s.description || null, s.owner_name, s.owner_email, s.owner_id || null,
+      s.shop_type || 'individual', s.status || 'active', s.category || null, s.city || null,
+      s.address || null, s.whatsapp_number || '699000000', s.mtn_number || null, s.orange_number || null,
+      s.latitude ? Number(s.latitude) : null, s.longitude ? Number(s.longitude) : null,
+      s.logo_url || null, s.profile_image || null, s.cover_image || null, s.business_hours || null,
+      Number(s.rating || 0), Number(s.reviews_count || 0), Boolean(s.is_verified),
+      JSON.stringify(s.policies || {}), JSON.stringify(s.social_links || {}),
+      s.created_date || now(), s.updated_date || now()
+    ])
+  } catch (err) {
+    console.error('[PostgreSQL] Erreur sauvegarde boutique:', err.message)
+  }
+}
+
+async function persistProductToPostgres(p) {
+  try {
+    await pool.query(`
+      INSERT INTO products (id, shop_id, seller_name, seller_email, title, description, price, original_price, category, subcategory, condition, city, neighborhood, whatsapp_number, images, image_url, tags, stock, sold_count, views_count, is_promoted, promotion_expires, status, rating, reviews_count, created_date, updated_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+      ON CONFLICT (id) DO UPDATE SET
+        title = EXCLUDED.title,
+        description = EXCLUDED.description,
+        price = EXCLUDED.price,
+        original_price = EXCLUDED.original_price,
+        category = EXCLUDED.category,
+        subcategory = EXCLUDED.subcategory,
+        condition = EXCLUDED.condition,
+        city = EXCLUDED.city,
+        neighborhood = EXCLUDED.neighborhood,
+        whatsapp_number = EXCLUDED.whatsapp_number,
+        images = EXCLUDED.images,
+        image_url = EXCLUDED.image_url,
+        tags = EXCLUDED.tags,
+        stock = EXCLUDED.stock,
+        sold_count = EXCLUDED.sold_count,
+        views_count = EXCLUDED.views_count,
+        is_promoted = EXCLUDED.is_promoted,
+        promotion_expires = EXCLUDED.promotion_expires,
+        status = EXCLUDED.status,
+        rating = EXCLUDED.rating,
+        reviews_count = EXCLUDED.reviews_count,
+        updated_date = NOW()
+    `, [
+      p.id, p.shop_id || null, p.seller_name || null, p.seller_email || null,
+      p.title, p.description || null, Number(p.price || 0), p.original_price ? Number(p.original_price) : null,
+      p.category || 'general', p.subcategory || null, p.condition || 'neuf',
+      p.city || null, p.neighborhood || null, p.whatsapp_number || null,
+      JSON.stringify(p.images || []), p.image_url || null, JSON.stringify(p.tags || []),
+      Number(p.stock || 1), Number(p.sold_count || 0), Number(p.views_count || 0),
+      Boolean(p.is_promoted), p.promotion_expires || null, p.status || 'active',
+      Number(p.rating || 0), Number(p.reviews_count || 0),
+      p.created_date || now(), p.updated_date || now()
+    ])
+  } catch (err) {
+    console.error('[PostgreSQL] Erreur sauvegarde produit:', err.message)
+  }
+}
+
+async function persistOrderToPostgres(o) {
+  try {
+    await pool.query(`
+      INSERT INTO orders (id, user_id, shop_id, shop_name, product_id, product_name, product_price, total_amount, status, items, customer_name, customer_email, customer_phone, shipping_address, payment_reference, payment_proof_url, payment_proof_type, payment_method, payment_verified, withdrawal_status, withdrawal_pin, pin_code, promo_code, discount_amount, is_p2p, fee_amount, message, cancellation_reason, created_date, updated_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+      ON CONFLICT (id) DO UPDATE SET
+        status = EXCLUDED.status,
+        payment_verified = EXCLUDED.payment_verified,
+        withdrawal_status = EXCLUDED.withdrawal_status,
+        payment_proof_url = EXCLUDED.payment_proof_url,
+        payment_reference = EXCLUDED.payment_reference,
+        cancellation_reason = EXCLUDED.cancellation_reason,
+        updated_date = NOW()
+    `, [
+      o.id, o.user_id || null, o.shop_id || null, o.shop_name || null,
+      o.product_id || null, o.product_name || null, o.product_price ? Number(o.product_price) : null,
+      Number(o.total_amount || 0), o.status || 'new', JSON.stringify(o.items || []),
+      o.customer_name || null, o.customer_email || null, o.customer_phone || null,
+      JSON.stringify(o.shipping_address || {}), o.payment_reference || null,
+      o.payment_proof_url || null, o.payment_proof_type || null, o.payment_method || null,
+      Boolean(o.payment_verified), o.withdrawal_status || 'pending', o.withdrawal_pin || null,
+      o.pin_code || null, o.promo_code || null, Number(o.discount_amount || 0),
+      Boolean(o.is_p2p), Number(o.fee_amount || 0), o.message || null, o.cancellation_reason || null,
+      o.created_date || now(), o.updated_date || now()
+    ])
+  } catch (err) {
+    console.error('[PostgreSQL] Erreur sauvegarde commande:', err.message)
+  }
+}
+
+async function persistVisitRequestToPostgres(v) {
+  try {
+    await pool.query(`
+      INSERT INTO visit_requests (id, housing_id, housing_title, housing_city, housing_image, visitor_name, visitor_email, visitor_phone, package_type, package_label, amount, payment_method, payment_proof_url, payment_reference, payment_status, visit_date, visit_time, status, notes, created_date, updated_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      ON CONFLICT (id) DO UPDATE SET
+        payment_status = EXCLUDED.payment_status,
+        status = EXCLUDED.status,
+        notes = EXCLUDED.notes,
+        payment_proof_url = EXCLUDED.payment_proof_url,
+        updated_date = NOW()
+    `, [
+      v.id, v.housing_id || null, v.housing_title || 'Visite Immobilière', v.housing_city || null,
+      v.housing_image || null, v.visitor_name || '', v.visitor_email || '', v.visitor_phone || '',
+      v.package_type || 'single', v.package_label || null, Number(v.amount || 0),
+      v.payment_method || 'momo', v.payment_proof_url || null, v.payment_reference || null,
+      v.payment_status || 'pending', v.visit_date || null, v.visit_time || null,
+      v.status || 'pending', v.notes || null, v.created_date || now(), v.updated_date || now()
+    ])
+  } catch (err) {
+    console.error('[PostgreSQL] Erreur sauvegarde demande de visite:', err.message)
+  }
+}
+
+async function persistAuditLogToPostgres(a) {
+  try {
+    await pool.query(`
+      INSERT INTO audit_logs (id, admin_name, action, details, severity, created_date, updated_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (id) DO UPDATE SET
+        details = EXCLUDED.details,
+        updated_date = NOW()
+    `, [
+      a.id, a.admin_name || 'Admin', a.action || 'ACTION', a.details || null,
+      a.severity || 'info', a.created_date || now(), a.updated_date || now()
+    ])
+  } catch (err) {
+    console.error('[PostgreSQL] Erreur sauvegarde audit log:', err.message)
+  }
+}
+
 async function persistGenericToPostgres(collection, item) {
   try {
     await pool.query(`
@@ -552,6 +719,10 @@ async function deleteFromPostgres(collection, id) {
       await pool.query('DELETE FROM products WHERE id = $1', [id])
     } else if (collection === 'orders') {
       await pool.query('DELETE FROM orders WHERE id = $1', [id])
+    } else if (collection === 'visit_requests') {
+      await pool.query('DELETE FROM visit_requests WHERE id = $1', [id])
+    } else if (collection === 'audit_logs') {
+      await pool.query('DELETE FROM audit_logs WHERE id = $1', [id])
     } else {
       await pool.query('DELETE FROM generic_records WHERE id = $1', [id])
     }
@@ -581,9 +752,14 @@ export function getTable(tableName) {
       memoryCache[tableName] = [item, ...(memoryCache[tableName] || [])]
       saveToDisk()
 
-      // PostgreSQL Realtime Write
+      // PostgreSQL Realtime Write to specific tables or generic_records
       if (tableName === 'users') persistUserToPostgres(item)
       else if (tableName === 'housing') persistHousingToPostgres(item)
+      else if (tableName === 'shops') persistShopToPostgres(item)
+      else if (tableName === 'products') persistProductToPostgres(item)
+      else if (tableName === 'orders') persistOrderToPostgres(item)
+      else if (tableName === 'visit_requests') persistVisitRequestToPostgres(item)
+      else if (tableName === 'audit_logs') persistAuditLogToPostgres(item)
       else persistGenericToPostgres(tableName, item)
 
       return item
@@ -600,6 +776,11 @@ export function getTable(tableName) {
       // PostgreSQL Realtime Update
       if (tableName === 'users') persistUserToPostgres(item)
       else if (tableName === 'housing') persistHousingToPostgres(item)
+      else if (tableName === 'shops') persistShopToPostgres(item)
+      else if (tableName === 'products') persistProductToPostgres(item)
+      else if (tableName === 'orders') persistOrderToPostgres(item)
+      else if (tableName === 'visit_requests') persistVisitRequestToPostgres(item)
+      else if (tableName === 'audit_logs') persistAuditLogToPostgres(item)
       else persistGenericToPostgres(tableName, item)
 
       return item

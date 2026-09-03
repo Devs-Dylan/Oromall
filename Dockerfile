@@ -1,20 +1,35 @@
-# Étape 1 : Build de l'application React
-FROM node:20-alpine AS build
+# Étape 1 : Construction de l'application React Vite (Frontend)
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Installation des dépendances
 COPY package*.json ./
-RUN npm install
+RUN npm ci || npm install
 
+# Copie du code source et compilation Vite
 COPY . .
 RUN npm run build
 
-# Étape 2 : Serveur de production Nginx
-FROM nginx:alpine
+# Étape 2 : Image d'exécution de production (Node.js + Serveur Express/PostgreSQL)
+FROM node:20-alpine AS runner
 
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-EXPOSE 80
+ENV NODE_ENV=production
+ENV PORT=80
 
-CMD ["nginx", "-g", "daemon off;"]
+# Installation exclusive des dépendances de production
+COPY package*.json ./
+RUN npm ci --omit=dev || npm install --omit=dev
+
+# Copie du bundle frontend compilé et des fichiers serveur backend
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/schema.sql ./schema.sql
+COPY --from=builder /app/package.json ./package.json
+
+EXPOSE 80 3000
+
+# Lancement du serveur Node.js qui sert l'API REST et le Frontend SPA
+CMD ["node", "server/server.mjs"]
