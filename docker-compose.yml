@@ -20,11 +20,11 @@ services:
       retries: 5
 
   # 2. Application Unifiée OroMall (Frontend React + Backend REST API + Base PostgreSQL)
-  app:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: oromall_app
+    container_name: oromall_frontend
     restart: always
     environment:
       NODE_ENV: production
