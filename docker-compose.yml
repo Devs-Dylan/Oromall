@@ -18,6 +18,8 @@ services:
       retries: 5
     expose:
       - "5432"
+    networks:
+      - default
 
   # 2. Application Unifiée OroMall (Frontend React + Backend REST API + Base PostgreSQL)
   frontend:
@@ -43,8 +45,16 @@ services:
       - app_data:/app/server/data
     expose:
       - "3000"
+    networks:
+      - default
+      - dokploy-network
 
 volumes:
   pgdata:
   app_data:
+
+networks:
+  dokploy-network:
+    external: true
+
 
